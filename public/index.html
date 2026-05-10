@@ -1,32 +1,265 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Hello, World!</title>
+		<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+		<title>Danbooru Tags</title>
 	</head>
-	<body>
-		<h1 id="heading"></h1>
-		<p>This page comes from a static asset stored at `public/index.html` as configured in `wrangler.jsonc`.</p>
-		<button id="button" type="button">Fetch a random UUID</button>
-		<output id="random" for="button"></output>
+	<body class="bg-gray-950 text-gray-100 min-h-screen">
+		<div id="app" v-cloak>
+			<div class="max-w-2xl mx-auto px-4 py-8">
+				<h1 class="text-2xl font-bold mb-8 text-center">Danbooru Tags</h1>
+
+				<!-- API Key -->
+				<div class="mb-6 bg-gray-900 rounded-xl p-4 border border-gray-800">
+					<label class="block text-sm text-gray-400 mb-2">API Key</label>
+					<div class="flex gap-2">
+						<input
+							v-if="!apiKeySaved"
+							v-model="apiKeyInput"
+							type="password"
+							placeholder="输入 Gemini API Key"
+							class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
+						/>
+						<input
+							v-else
+							:value="maskedApiKey"
+							type="text"
+							readonly
+							class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-mono cursor-default"
+						/>
+						<button
+							v-if="!apiKeySaved"
+							@click="saveApiKey"
+							:disabled="!apiKeyInput.trim()"
+							class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+						>保存</button>
+						<button
+							v-else
+							@click="clearApiKey"
+							class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
+						>清除</button>
+					</div>
+				</div>
+
+				<!-- Mode Switch -->
+				<div class="mb-6 bg-gray-900 rounded-xl p-4 border border-gray-800">
+					<div class="flex items-center justify-center gap-4">
+						<span :class="mode === 'translate' ? 'text-blue-400' : 'text-gray-500'" class="text-sm font-medium transition-colors">中文转标签</span>
+						<button
+							@click="toggleMode"
+							class="relative w-12 h-6 rounded-full transition-colors duration-200"
+							:class="mode === 'translate' ? 'bg-blue-600' : 'bg-gray-600'"
+						>
+							<span
+								class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+								:class="mode === 'translate' ? '' : 'translate-x-6'"
+							></span>
+						</button>
+						<span :class="mode === 'rewrite' ? 'text-blue-400' : 'text-gray-500'" class="text-sm font-medium transition-colors">改写标签</span>
+					</div>
+				</div>
+
+				<!-- Inputs -->
+				<div class="bg-gray-900 rounded-xl p-4 border border-gray-800 space-y-4">
+					<!-- Translate Mode -->
+					<template v-if="mode === 'translate'">
+						<div>
+							<label class="block text-sm text-gray-400 mb-1">中文描述</label>
+							<textarea
+								v-model="prompt"
+								rows="4"
+								placeholder="输入中文描述，例如：一个穿着白色连衣裙的少女，微笑着站在樱花树下"
+								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
+							></textarea>
+						</div>
+						<div>
+							<label class="block text-sm text-gray-400 mb-1">负面标签 <span class="text-gray-600">(可选)</span></label>
+							<textarea
+								v-model="negativePrompt"
+								rows="2"
+								placeholder="已有的负面标签（会被优化或替换）"
+								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
+							></textarea>
+						</div>
+					</template>
+
+					<!-- Rewrite Mode -->
+					<template v-else>
+						<div>
+							<label class="block text-sm text-gray-400 mb-1">当前标签 <span class="text-red-400">*</span></label>
+							<textarea
+								v-model="prompt"
+								rows="4"
+								placeholder="当前的英文 Danbooru 标签列表"
+								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
+							></textarea>
+						</div>
+						<div>
+							<label class="block text-sm text-gray-400 mb-1">修改要求 <span class="text-red-400">*</span></label>
+							<textarea
+								v-model="originalPrompt"
+								rows="3"
+								placeholder="用中文描述需要如何修改，例如：把裙子改成短裙，加上猫耳"
+								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
+							></textarea>
+						</div>
+						<div>
+							<label class="block text-sm text-gray-400 mb-1">负面标签 <span class="text-gray-600">(可选)</span></label>
+							<textarea
+								v-model="negativePrompt"
+								rows="2"
+								placeholder="已有的负面标签（会被优化或替换）"
+								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
+							></textarea>
+						</div>
+					</template>
+
+					<button
+						@click="submit"
+						:disabled="loading || !canSubmit"
+						class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+					>
+						<span v-if="loading" class="inline-flex items-center gap-2">
+							<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+							处理中...
+						</span>
+						<span v-else>{{ mode === 'translate' ? '转换' : '改写' }}</span>
+					</button>
+				</div>
+
+				<!-- Error -->
+				<div v-if="error" class="mt-4 bg-red-900/50 border border-red-700 rounded-xl p-4 text-sm text-red-300">{{ error }}</div>
+
+				<!-- Result -->
+				<div v-if="result" class="mt-4 bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+					<div class="p-4 border-b border-gray-800">
+						<h3 class="text-sm font-medium text-green-400 mb-2">POSITIVE</h3>
+						<p class="text-sm text-gray-200 break-all leading-relaxed">{{ result.positive }}</p>
+					</div>
+					<div v-if="result.negative" class="p-4">
+						<h3 class="text-sm font-medium text-red-400 mb-2">NEGATIVE</h3>
+						<p class="text-sm text-gray-200 break-all leading-relaxed">{{ result.negative }}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<style>[v-cloak]{display:none}</style>
+
 		<script>
-			fetch('/message')
-				.then((resp) => resp.text())
-				.then((text) => {
-					const h1 = document.getElementById('heading');
-					h1.textContent = text;
+		const { createApp, ref, computed, watch } = Vue;
+
+		createApp({
+			setup() {
+				const STORAGE_KEY = 'danbooru_tags_api_key';
+
+				const mode = ref('translate');
+				const apiKeyInput = ref('');
+				const apiKeySaved = ref(false);
+				const prompt = ref('');
+				const originalPrompt = ref('');
+				const negativePrompt = ref('');
+				const loading = ref(false);
+				const error = ref('');
+				const result = ref(null);
+
+				// Restore saved API key
+				const saved = localStorage.getItem(STORAGE_KEY);
+				if (saved) {
+					apiKeyInput.value = saved;
+					apiKeySaved.value = true;
+				}
+
+				const maskedApiKey = computed(() => {
+					const key = apiKeyInput.value;
+					if (key.length <= 8) return '****';
+					return key.slice(0, 4) + '****' + key.slice(-4);
 				});
 
-			const button = document.getElementById("button");
-			button.addEventListener("click", () => {
-				fetch('/random')
-					.then((resp) => resp.text())
-					.then((text) => {
-						const random = document.getElementById('random');
-						random.textContent = text;
-					});
-			});
+				const canSubmit = computed(() => {
+					if (!apiKeySaved.value) return false;
+					if (!prompt.value.trim()) return false;
+					if (mode.value === 'rewrite' && !originalPrompt.value.trim()) return false;
+					return true;
+				});
+
+				function toggleMode() {
+					mode.value = mode.value === 'translate' ? 'rewrite' : 'translate';
+					error.value = '';
+					result.value = null;
+				}
+
+				function saveApiKey() {
+					const key = apiKeyInput.value.trim();
+					if (!key) return;
+					localStorage.setItem(STORAGE_KEY, key);
+					apiKeySaved.value = true;
+				}
+
+				function clearApiKey() {
+					localStorage.removeItem(STORAGE_KEY);
+					apiKeyInput.value = '';
+					apiKeySaved.value = false;
+				}
+
+				async function submit() {
+					error.value = '';
+					result.value = null;
+					loading.value = true;
+
+					try {
+						const endpoint = mode.value === 'translate' ? '/api/translate' : '/api/rewrite';
+						const body = {
+							prompt: prompt.value.trim(),
+							apiKey: apiKeyInput.value,
+						};
+						if (negativePrompt.value.trim()) {
+							body.negative_prompt = negativePrompt.value.trim();
+						}
+						if (mode.value === 'rewrite') {
+							body.original_prompt = originalPrompt.value.trim();
+						}
+
+						const res = await fetch(endpoint, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify(body),
+						});
+
+						const data = await res.json();
+						if (!res.ok) {
+							throw new Error(data.error || `HTTP ${res.status}`);
+						}
+						result.value = data;
+					} catch (e) {
+						error.value = e.message || String(e);
+					} finally {
+						loading.value = false;
+					}
+				}
+
+				return {
+					mode,
+					apiKeyInput,
+					apiKeySaved,
+					prompt,
+					originalPrompt,
+					negativePrompt,
+					loading,
+					error,
+					result,
+					maskedApiKey,
+					canSubmit,
+					toggleMode,
+					saveApiKey,
+					clearApiKey,
+					submit,
+				};
+			}
+		}).mount('#app');
 		</script>
 	</body>
 </html>
