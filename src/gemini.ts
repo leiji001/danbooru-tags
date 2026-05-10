@@ -56,7 +56,7 @@ export async function geminiGenerate(
 
 export interface StreamCallbacks {
 	onChunk?: (text: string) => void;
-	onRetry?: (attempt: number, maxRetries: number) => void;
+	onRetry?: (attempt: number, maxRetries: number, error: string) => void;
 }
 
 async function callGeminiStream(
@@ -93,12 +93,13 @@ export async function geminiGenerateStream(
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
 			if (attempt > 0) {
-				options.onRetry?.(attempt, maxRetries);
+				options.onRetry?.(attempt, maxRetries, "");
 			}
 			return await callGeminiStream(prompt, options);
 		} catch (err) {
 			if (attempt === maxRetries) throw err;
 			const wait = baseDelay * 2 ** attempt;
+			options.onRetry?.(attempt + 1, maxRetries, String(err));
 			await delay(wait);
 		}
 	}

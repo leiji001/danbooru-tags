@@ -93,8 +93,8 @@ export default {
 							try {
 								send('status', { status: 'generating' });
 
-								const onRetry = (attempt: number, maxRetries: number) => {
-									send('retry', { attempt, maxRetries });
+								const onRetry = (attempt: number, maxRetries: number, error: string) => {
+									send('retry', { attempt, maxRetries, message: error });
 								};
 								const onChunk = (text: string) => {
 									send('chunk', { text });

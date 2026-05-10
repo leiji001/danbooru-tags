@@ -149,6 +149,7 @@
 							重试: {{ retryCount }}/{{ retryMax }}
 						</span>
 					</div>
+					<div v-if="retryError" class="text-xs text-red-400 break-all">{{ retryError }}</div>
 					<!-- SSE streaming output -->
 					<div v-if="sseOutput" class="bg-gray-800 rounded-lg p-3 text-xs text-gray-300 font-mono max-h-48 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed">{{ sseOutput }}</div>
 				</div>
@@ -190,6 +191,7 @@
 				const statusText = ref('');
 				const retryCount = ref(0);
 				const retryMax = ref(0);
+				const retryError = ref('');
 				const sseOutput = ref('');
 
 				// Restore saved API key
@@ -238,6 +240,7 @@
 					statusText.value = '正在连接...';
 					retryCount.value = 0;
 					retryMax.value = 0;
+					retryError.value = '';
 					sseOutput.value = '';
 
 					try {
@@ -308,6 +311,7 @@
 										case 'retry':
 											retryCount.value = data.attempt;
 											retryMax.value = data.maxRetries;
+											retryError.value = data.message || '';
 											sseStatus.value = 'retrying';
 											statusText.value = `重试中 (${data.attempt}/${data.maxRetries})...`;
 											break;
