@@ -206,7 +206,6 @@
 				});
 
 				const canSubmit = computed(() => {
-					if (!apiKeySaved.value) return false;
 					if (!prompt.value.trim()) return false;
 					if (mode.value === 'rewrite' && !originalPrompt.value.trim()) return false;
 					return true;
