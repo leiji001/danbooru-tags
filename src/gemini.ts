@@ -24,7 +24,7 @@ async function callGemini(
 	options: GeminiOptions,
 	attempt: number,
 ): Promise<GeminiResponse> {
-	const { apiKey, model = "gemini-2.5-flash" } = options;
+	const { apiKey, model = "gemma-4-26b-a4b-it" } = options;
 
 	const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`;
 	const body = JSON.stringify({
@@ -62,7 +62,7 @@ export async function geminiGenerate(
 	prompt: string,
 	options: GeminiOptions,
 ): Promise<GeminiResponse> {
-	const { maxRetries = 3, baseDelay = 1000 } = options;
+	const { maxRetries = 8, baseDelay = 1000 } = options;
 
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
