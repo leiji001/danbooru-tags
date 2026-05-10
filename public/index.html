@@ -130,7 +130,28 @@
 					</button>
 				</div>
 
-				<!-- Error -->
+				<!-- Status & Retry -->
+				<div v-if="loading || statusText" class="mt-4 bg-gray-900 rounded-xl p-4 border border-gray-800 space-y-3">
+					<div class="flex items-center gap-3">
+						<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+							:class="{
+								'bg-blue-500/20 text-blue-300': sseStatus === 'generating',
+								'bg-yellow-500/20 text-yellow-300': sseStatus === 'retrying',
+								'bg-green-500/20 text-green-300': sseStatus === 'done',
+								'bg-red-500/20 text-red-300': sseStatus === 'error',
+								'bg-gray-700 text-gray-400': !sseStatus
+							}"
+						>
+							<svg v-if="sseStatus === 'generating' || sseStatus === 'retrying'" class="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+							{{ statusText }}
+						</span>
+						<span v-if="retryCount > 0" class="text-xs text-yellow-400">
+							重试: {{ retryCount }}/{{ retryMax }}
+						</span>
+					</div>
+					<!-- SSE streaming output -->
+					<div v-if="sseOutput" class="bg-gray-800 rounded-lg p-3 text-xs text-gray-300 font-mono max-h-48 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed">{{ sseOutput }}</div>
+				</div>
 				<div v-if="error" class="mt-4 bg-red-900/50 border border-red-700 rounded-xl p-4 text-sm text-red-300">{{ error }}</div>
 
 				<!-- Result -->
@@ -165,6 +186,11 @@
 				const loading = ref(false);
 				const error = ref('');
 				const result = ref(null);
+				const sseStatus = ref('');
+				const statusText = ref('');
+				const retryCount = ref(0);
+				const retryMax = ref(0);
+				const sseOutput = ref('');
 
 				// Restore saved API key
 				const saved = localStorage.getItem(STORAGE_KEY);
@@ -209,10 +235,15 @@
 					error.value = '';
 					result.value = null;
 					loading.value = true;
+					sseStatus.value = '';
+					statusText.value = '正在连接...';
+					retryCount.value = 0;
+					retryMax.value = 0;
+					sseOutput.value = '';
 
 					try {
-						const endpoint = mode.value === 'translate' ? '/api/translate' : '/api/rewrite';
 						const body = {
+							mode: mode.value,
 							prompt: prompt.value.trim(),
 							apiKey: apiKeyInput.value,
 						};
@@ -223,19 +254,83 @@
 							body.original_prompt = originalPrompt.value.trim();
 						}
 
-						const res = await fetch(endpoint, {
+						const res = await fetch('/api/stream', {
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify(body),
 						});
 
-						const data = await res.json();
 						if (!res.ok) {
-							throw new Error(data.error || `HTTP ${res.status}`);
+							const errData = await res.json().catch(() => ({}));
+							throw new Error(errData.error || `HTTP ${res.status}`);
 						}
-						result.value = data;
+
+						const reader = res.body.getReader();
+						const decoder = new TextDecoder();
+						let buffer = '';
+
+						while (true) {
+							const { done, value } = await reader.read();
+							if (done) break;
+
+							buffer += decoder.decode(value, { stream: true });
+							const parts = buffer.split('\n\n');
+							buffer = parts.pop() || '';
+
+							for (const part of parts) {
+								const lines = part.trim().split('\n');
+								let eventType = '';
+								let dataStr = '';
+
+								for (const line of lines) {
+									if (line.startsWith('event: ')) {
+										eventType = line.slice(7).trim();
+									} else if (line.startsWith('data: ')) {
+										dataStr = line.slice(6).trim();
+									}
+								}
+
+								if (!eventType || !dataStr) continue;
+
+								try {
+									const data = JSON.parse(dataStr);
+
+									switch (eventType) {
+										case 'status':
+											sseStatus.value = data.status;
+											if (data.status === 'generating') {
+												statusText.value = '生成中...';
+											} else if (data.status === 'done') {
+												statusText.value = '完成';
+											} else if (data.status === 'error') {
+												statusText.value = '错误';
+											}
+											break;
+										case 'retry':
+											retryCount.value = data.attempt;
+											retryMax.value = data.maxRetries;
+											sseStatus.value = 'retrying';
+											statusText.value = `重试中 (${data.attempt}/${data.maxRetries})...`;
+											break;
+										case 'chunk':
+											sseOutput.value = data.text;
+											break;
+										case 'result':
+											result.value = data;
+											break;
+										case 'error':
+											error.value = data.message;
+											break;
+									}
+								} catch {
+									// skip unparseable events
+								}
+							}
+						}
 					} catch (e) {
 						error.value = e.message || String(e);
+						sseStatus.value = 'error';
+						statusText.value = '错误';
 					} finally {
 						loading.value = false;
 					}
@@ -251,6 +346,11 @@
 					loading,
 					error,
 					result,
+					sseStatus,
+					statusText,
+					retryCount,
+					retryMax,
+					sseOutput,
 					maskedApiKey,
 					canSubmit,
 					toggleMode,

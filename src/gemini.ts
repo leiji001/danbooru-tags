@@ -76,3 +76,92 @@ export async function geminiGenerate(
 
 	throw new Error("Unreachable");
 }
+
+export interface StreamCallbacks {
+	onChunk?: (text: string) => void;
+	onRetry?: (attempt: number, maxRetries: number) => void;
+}
+
+async function callGeminiStream(
+	prompt: string,
+	options: GeminiOptions & StreamCallbacks,
+): Promise<GeminiResponse> {
+	const { apiKey, model = "gemma-4-26b-a4b-it" } = options;
+
+	const url = `${GEMINI_API_BASE}/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+	const body = JSON.stringify({
+		contents: [{ parts: [{ text: prompt }] }],
+	});
+
+	const response = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body,
+	});
+
+	if (!response.ok && isRetryable(response.status)) {
+		throw new Error(`Retryable: HTTP ${response.status}`);
+	}
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(`Gemini API error ${response.status}: ${errorText}`);
+	}
+
+	const reader = response.body?.getReader();
+	if (!reader) throw new Error("No response body from Gemini stream");
+
+	const decoder = new TextDecoder();
+	let fullText = "";
+	let buffer = "";
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+
+		buffer += decoder.decode(value, { stream: true });
+		const lines = buffer.split("\n");
+		buffer = lines.pop() || "";
+
+		for (const line of lines) {
+			if (!line.startsWith("data: ")) continue;
+			const jsonStr = line.slice(6).trim();
+			if (!jsonStr) continue;
+			try {
+				const data = JSON.parse(jsonStr);
+				const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+				if (text) {
+					fullText += text;
+					options.onChunk?.(fullText);
+				}
+			} catch {
+				// skip unparseable chunks
+			}
+		}
+	}
+
+	if (!fullText) throw new Error("Gemini API returned no text");
+	return { text: fullText };
+}
+
+export async function geminiGenerateStream(
+	prompt: string,
+	options: GeminiOptions & StreamCallbacks,
+): Promise<GeminiResponse> {
+	const { maxRetries = 8, baseDelay = 1000 } = options;
+
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			if (attempt > 0) {
+				options.onRetry?.(attempt, maxRetries);
+			}
+			return await callGeminiStream(prompt, options);
+		} catch (err) {
+			if (attempt === maxRetries) throw err;
+			const wait = baseDelay * 2 ** attempt;
+			await delay(wait);
+		}
+	}
+
+	throw new Error("Unreachable");
+}

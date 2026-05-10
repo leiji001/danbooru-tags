@@ -1,4 +1,4 @@
-import { geminiGenerate } from "./gemini";
+import { geminiGenerate, geminiGenerateStream, type StreamCallbacks } from "./gemini";
 
 // ========== Prompt 常量（参考 natureDrawImage web/app.py） ==========
 
@@ -115,5 +115,72 @@ export async function rewritePrompt(params: RewritePromptParams): Promise<Prompt
 	const user = `Current positive tags:\n${original_prompt}${negCtx}\n\nModification:\n${prompt}`;
 
 	const { text } = await geminiGenerate(`${system}\n\n${user}`, { apiKey });
+	return parsePosNeg(text);
+}
+
+// ========== 流式版本 ==========
+
+function buildTranslateSystem(): string {
+	return [
+		NSFW_RULE,
+		"",
+		"Convert the user's Chinese description into English Danbooru tags.",
+		"Also generate appropriate negative tags.",
+		"",
+		TAG_VOCAB,
+		"",
+		LLM_NEGATIVE_HINT,
+		"",
+		LLM_OUTPUT_RULE,
+	].join("\n");
+}
+
+function buildRewriteSystem(): string {
+	return [
+		NSFW_RULE,
+		"",
+		"The user gives you existing tags and a modification request in Chinese.",
+		"Merge the modification into the existing tags. Keep unchanged tags.",
+		"Also generate appropriate negative tags.",
+		"",
+		TAG_VOCAB,
+		"",
+		LLM_NEGATIVE_HINT,
+		"",
+		LLM_OUTPUT_RULE,
+	].join("\n");
+}
+
+export async function translatePromptStream(
+	params: TranslatePromptParams & StreamCallbacks,
+): Promise<PromptResult> {
+	const { prompt, negative_prompt, apiKey, onChunk, onRetry } = params;
+
+	let negCtx = "";
+	if (negative_prompt) {
+		negCtx = `\n\nCurrent negative tags (improve or replace as needed):\n${negative_prompt}`;
+	}
+
+	const system = buildTranslateSystem();
+	const user = `${prompt}${negCtx}`;
+
+	const { text } = await geminiGenerateStream(`${system}\n\n${user}`, { apiKey, onChunk, onRetry });
+	return parsePosNeg(text);
+}
+
+export async function rewritePromptStream(
+	params: RewritePromptParams & StreamCallbacks,
+): Promise<PromptResult> {
+	const { prompt, original_prompt, negative_prompt, apiKey, onChunk, onRetry } = params;
+
+	let negCtx = "";
+	if (negative_prompt) {
+		negCtx = `\n\nCurrent negative tags (improve or replace as needed):\n${negative_prompt}`;
+	}
+
+	const system = buildRewriteSystem();
+	const user = `Current positive tags:\n${original_prompt}${negCtx}\n\nModification:\n${prompt}`;
+
+	const { text } = await geminiGenerateStream(`${system}\n\n${user}`, { apiKey, onChunk, onRetry });
 	return parsePosNeg(text);
 }
