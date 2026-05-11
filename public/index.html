@@ -158,11 +158,25 @@
 				<!-- Result -->
 				<div v-if="result" class="mt-4 bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
 					<div class="p-4 border-b border-gray-800">
-						<h3 class="text-sm font-medium text-green-400 mb-2">POSITIVE</h3>
+						<div class="flex items-center justify-between mb-2">
+							<h3 class="text-sm font-medium text-green-400">POSITIVE</h3>
+							<button
+								@click="copyText(result.positive, 'positive')"
+								class="px-3 py-1 rounded text-xs font-medium transition-colors"
+								:class="copied === 'positive' ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+							>{{ copied === 'positive' ? '✓ 已复制' : '复制' }}</button>
+						</div>
 						<p class="text-sm text-gray-200 break-all leading-relaxed">{{ result.positive }}</p>
 					</div>
 					<div v-if="result.negative" class="p-4">
-						<h3 class="text-sm font-medium text-red-400 mb-2">NEGATIVE</h3>
+						<div class="flex items-center justify-between mb-2">
+							<h3 class="text-sm font-medium text-red-400">NEGATIVE</h3>
+							<button
+								@click="copyText(result.negative, 'negative')"
+								class="px-3 py-1 rounded text-xs font-medium transition-colors"
+								:class="copied === 'negative' ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
+							>{{ copied === 'negative' ? '✓ 已复制' : '复制' }}</button>
+						</div>
 						<p class="text-sm text-gray-200 break-all leading-relaxed">{{ result.negative }}</p>
 					</div>
 				</div>
@@ -193,6 +207,7 @@
 				const retryMax = ref(0);
 				const retryError = ref('');
 				const sseOutput = ref('');
+				const copied = ref('');
 
 				// Restore saved API key
 				const saved = localStorage.getItem(STORAGE_KEY);
@@ -230,6 +245,18 @@
 					localStorage.removeItem(STORAGE_KEY);
 					apiKeyInput.value = '';
 					apiKeySaved.value = false;
+				}
+
+				async function copyText(text, tag) {
+					try {
+						await navigator.clipboard.writeText(text);
+						copied.value = tag;
+						setTimeout(() => {
+							if (copied.value === tag) copied.value = '';
+						}, 2000);
+					} catch {
+						// fallback
+					}
 				}
 
 				async function submit() {
@@ -356,9 +383,11 @@
 					sseOutput,
 					maskedApiKey,
 					canSubmit,
+					copied,
 					toggleMode,
 					saveApiKey,
 					clearApiKey,
+					copyText,
 					submit,
 				};
 			}
