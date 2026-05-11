@@ -18,10 +18,7 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true,
-	"vars": {
-		"GEMINI_API_KEY": ""
-	}
+	"upload_source_maps": true
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
