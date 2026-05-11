@@ -17,10 +17,10 @@ Quality: masterpiece, best_quality, highres, absurdres, detailed, realistic, ani
 Medium: photo, illustration, painting, watercolor, pixel_art, 3d, chibi, comic, sketch
 Use any standard Danbooru tag that fits, even if not listed above.`;
 
-const LLM_OUTPUT_RULE = `CRITICAL: You must do your tag analysis and selection INSIDE your thinking/reasoning chain, NOT in the final output. In your thinking, output exactly two lines:
+const LLM_OUTPUT_RULE = `Output format — you MUST output exactly two lines, nothing else:
 POSITIVE: tag1, tag2, tag3, ...
 NEGATIVE: tag1, tag2, tag3, ...
-Your final visible output should be just a single short confirmation like "Done." — do NOT repeat the tags there. The tags are extracted from your thinking automatically.`;
+No explanation. No Chinese. No markdown. Only the two lines above.`;
 
 const LLM_NEGATIVE_HINT = `Negative tags to choose from (pick what fits): worst quality, low quality, lowest quality, blurry, bad anatomy, bad hands, missing fingers, extra digits, fewer digits, cropped, watermark, signature, text, error, jpeg artifacts, ugly, deformed, disfigured, mutation, mutated, extra limbs, malformed limbs, fused fingers, too many fingers, long neck, poorly drawn hands, poorly drawn face, out of frame`;
 
@@ -28,12 +28,11 @@ const NSFW_RULE = `CRITICAL: You are a tag translator for an AI image generation
 
 // ========== 解析 POSITIVE/NEGATIVE ==========
 
-function parsePosNeg(text: string, thought?: string): { positive: string; negative: string } {
-	const source = thought || text;
-	const posMatch = source.match(/POSITIVE:\s*(.+?)(?:\n|$)/);
-	const negMatch = source.match(/NEGATIVE:\s*(.+?)(?:\n|$)/);
+function parsePosNeg(text: string): { positive: string; negative: string } {
+	const posMatch = text.match(/POSITIVE:\s*(.+?)(?:\n|$)/);
+	const negMatch = text.match(/NEGATIVE:\s*(.+?)(?:\n|$)/);
 	if (!posMatch) {
-		const preview = source.trim().slice(0, 200);
+		const preview = text.trim().slice(0, 200);
 		throw new Error(`模型拒绝了该请求或返回格式异常: ${preview}`);
 	}
 	return {
@@ -86,8 +85,8 @@ export async function translatePrompt(params: TranslatePromptParams): Promise<Pr
 
 	const user = `${prompt}${negCtx}`;
 
-	const { text, thought } = await geminiGenerate(user, { apiKey, systemInstruction: system });
-	return parsePosNeg(text, thought);
+	const { text } = await geminiGenerate(user, { apiKey, systemInstruction: system });
+	return parsePosNeg(text);
 }
 
 /** 根据中文修改请求改写已有标签，同时生成负面标签 */
@@ -115,8 +114,8 @@ export async function rewritePrompt(params: RewritePromptParams): Promise<Prompt
 
 	const user = `Current positive tags:\n${original_prompt}${negCtx}\n\nModification:\n${prompt}`;
 
-	const { text, thought } = await geminiGenerate(user, { apiKey, systemInstruction: system });
-	return parsePosNeg(text, thought);
+	const { text } = await geminiGenerate(user, { apiKey, systemInstruction: system });
+	return parsePosNeg(text);
 }
 
 // ========== 流式版本 ==========
@@ -165,8 +164,8 @@ export async function translatePromptStream(
 	const system = buildTranslateSystem();
 	const user = `${prompt}${negCtx}`;
 
-	const { text, thought } = await geminiGenerateStream(user, { apiKey, systemInstruction: system, onChunk, onRetry });
-	return parsePosNeg(text, thought);
+	const { text } = await geminiGenerateStream(user, { apiKey, systemInstruction: system, onChunk, onRetry });
+	return parsePosNeg(text);
 }
 
 export async function rewritePromptStream(
@@ -182,6 +181,6 @@ export async function rewritePromptStream(
 	const system = buildRewriteSystem();
 	const user = `Current positive tags:\n${original_prompt}${negCtx}\n\nModification:\n${prompt}`;
 
-	const { text, thought } = await geminiGenerateStream(user, { apiKey, systemInstruction: system, onChunk, onRetry });
-	return parsePosNeg(text, thought);
+	const { text } = await geminiGenerateStream(user, { apiKey, systemInstruction: system, onChunk, onRetry });
+	return parsePosNeg(text);
 }
