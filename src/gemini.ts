@@ -1,14 +1,18 @@
-import { GoogleGenAI } from "@google/genai/web";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-export interface GeminiOptions {
+interface GeminiOptions {
 	apiKey: string;
 	model?: string;
 	maxRetries?: number;
 	baseDelay?: number;
 }
 
-export interface GeminiResponse {
+interface GeminiResponse {
 	text: string;
+}
+
+function isRetryable(status: number): boolean {
+	return status === 429 || status >= 500;
 }
 
 function delay(ms: number): Promise<void> {
@@ -18,16 +22,35 @@ function delay(ms: number): Promise<void> {
 async function callGemini(
 	prompt: string,
 	options: GeminiOptions,
+	attempt: number,
 ): Promise<GeminiResponse> {
 	const { apiKey, model = "gemma-4-26b-a4b-it" } = options;
-	const ai = new GoogleGenAI({ apiKey });
 
-	const response = await ai.models.generateContent({
-		model,
-		contents: prompt,
+	const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`;
+	const body = JSON.stringify({
+		contents: [{ parts: [{ text: prompt }] }],
 	});
 
-	const text = response.text;
+	const response = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body,
+	});
+
+	if (!response.ok && isRetryable(response.status)) {
+		throw new Error(`Retryable: HTTP ${response.status}`);
+	}
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(`Gemini API error ${response.status}: ${errorText}`);
+	}
+
+	const data = (await response.json()) as {
+		candidates?: { content?: { parts?: { text?: string }[] } }[];
+	};
+
+	const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 	if (!text) {
 		throw new Error("Gemini API returned no text");
 	}
@@ -43,7 +66,7 @@ export async function geminiGenerate(
 
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
-			return await callGemini(prompt, options);
+			return await callGemini(prompt, options, attempt);
 		} catch (err) {
 			if (attempt === maxRetries) throw err;
 			const wait = baseDelay * 2 ** attempt;
@@ -64,19 +87,56 @@ async function callGeminiStream(
 	options: GeminiOptions & StreamCallbacks,
 ): Promise<GeminiResponse> {
 	const { apiKey, model = "gemma-4-26b-a4b-it" } = options;
-	const ai = new GoogleGenAI({ apiKey });
 
-	const stream = await ai.models.generateContentStream({
-		model,
-		contents: prompt,
+	const url = `${GEMINI_API_BASE}/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+	const body = JSON.stringify({
+		contents: [{ parts: [{ text: prompt }] }],
 	});
 
+	const response = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body,
+	});
+
+	if (!response.ok && isRetryable(response.status)) {
+		throw new Error(`Retryable: HTTP ${response.status}`);
+	}
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(`Gemini API error ${response.status}: ${errorText}`);
+	}
+
+	const reader = response.body?.getReader();
+	if (!reader) throw new Error("No response body from Gemini stream");
+
+	const decoder = new TextDecoder();
 	let fullText = "";
-	for await (const chunk of stream) {
-		const text = chunk.text;
-		if (text) {
-			fullText += text;
-			options.onChunk?.(fullText);
+	let buffer = "";
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+
+		buffer += decoder.decode(value, { stream: true });
+		const lines = buffer.split("\n");
+		buffer = lines.pop() || "";
+
+		for (const line of lines) {
+			if (!line.startsWith("data: ")) continue;
+			const jsonStr = line.slice(6).trim();
+			if (!jsonStr) continue;
+			try {
+				const data = JSON.parse(jsonStr);
+				const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+				if (text) {
+					fullText += text;
+					options.onChunk?.(fullText);
+				}
+			} catch {
+				// skip unparseable chunks
+			}
 		}
 	}
 
