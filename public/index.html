@@ -550,11 +550,16 @@
 
 				<!-- History -->
 				<section v-if="history.length" class="card">
-					<div class="card-header">
-						<span>历史记录 ({{ history.length }})</span>
-						<button @click="clearHistory" class="btn btn-error btn-sm">清空</button>
+					<div class="card-header" style="cursor:pointer;user-select:none;" @click="historyCollapsed = !historyCollapsed">
+						<span style="display:flex;align-items:center;gap:6px;">
+							<span style="transition:transform .2s;" :style="{ transform: historyCollapsed ? '' : 'rotate(90deg)' }">▸</span>
+							历史记录 ({{ history.length }})
+						</span>
+						<div class="history-actions">
+							<button @click.stop="clearHistory" class="btn btn-error btn-sm">清空</button>
+						</div>
 					</div>
-					<div class="card-body" style="padding:0;">
+					<div v-show="!historyCollapsed" class="card-body" style="padding:0;">
 						<ul class="history-list">
 							<li v-for="item in history" :key="item.id" class="history-item"
 								@click="restoreHistory(item)">
@@ -652,9 +657,7 @@
 					// History
 					const HISTORY_KEY = 'danbooru_history';
 					const history = ref(loadHistory());
-
-					function loadHistory() {
-						try {
+				const historyCollapsed = ref(true);
 							return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
 						} catch { return []; }
 					}
@@ -840,7 +843,7 @@
 						loading, error, result,
 						streamStatus, thinking, streamChunks, retryInfo,
 						canSubmit, submit, copy,
-						history, restoreHistory, clearHistory, formatTime,
+						history, historyCollapsed, restoreHistory, clearHistory, formatTime,
 					};
 				}
 			}).mount('#app');
