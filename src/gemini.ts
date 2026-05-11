@@ -6,10 +6,12 @@ interface GeminiOptions {
 	systemInstruction?: string;
 	maxRetries?: number;
 	baseDelay?: number;
+	thinkingBudget?: number;
 }
 
 interface GeminiResponse {
 	text: string;
+	thought?: string;
 }
 
 function isRetryable(status: number): boolean {
@@ -20,16 +22,40 @@ function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function extractTextAndThought(data: {
+	candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+}): GeminiResponse {
+	const parts = data.candidates?.[0]?.content?.parts;
+	if (!parts) throw new Error("Gemini API returned no content");
+
+	let text = "";
+	let thought = "";
+	for (const part of parts) {
+		if (part.thought) {
+			thought += part.text || "";
+		} else {
+			text += part.text || "";
+		}
+	}
+
+	if (!text && !thought) throw new Error("Gemini API returned no text");
+
+	return { text: text || thought, thought: thought || undefined };
+}
+
 async function callGemini(
 	prompt: string,
 	options: GeminiOptions,
 	attempt: number,
 ): Promise<GeminiResponse> {
-	const { apiKey, model = "gemma-4-26b-a4b-it", systemInstruction } = options;
+	const { apiKey, model = "gemini-2.5-flash", systemInstruction, thinkingBudget = 4096 } = options;
 
 	const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`;
 	const reqBody: Record<string, unknown> = {
 		contents: [{ parts: [{ text: prompt }] }],
+		generationConfig: {
+			thinkingConfig: { thinkingBudget },
+		},
 	};
 	if (systemInstruction) {
 		reqBody.systemInstruction = { parts: [{ text: systemInstruction }] };
@@ -52,15 +78,10 @@ async function callGemini(
 	}
 
 	const data = (await response.json()) as {
-		candidates?: { content?: { parts?: { text?: string }[] } }[];
+		candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
 	};
 
-	const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-	if (!text) {
-		throw new Error("Gemini API returned no text");
-	}
-
-	return { text };
+	return extractTextAndThought(data);
 }
 
 export async function geminiGenerate(
@@ -91,11 +112,14 @@ async function callGeminiStream(
 	prompt: string,
 	options: GeminiOptions & StreamCallbacks,
 ): Promise<GeminiResponse> {
-	const { apiKey, model = "gemma-4-26b-a4b-it", systemInstruction } = options;
+	const { apiKey, model = "gemini-2.5-flash", systemInstruction, thinkingBudget = 4096 } = options;
 
 	const url = `${GEMINI_API_BASE}/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
 	const reqBody: Record<string, unknown> = {
 		contents: [{ parts: [{ text: prompt }] }],
+		generationConfig: {
+			thinkingConfig: { thinkingBudget },
+		},
 	};
 	if (systemInstruction) {
 		reqBody.systemInstruction = { parts: [{ text: systemInstruction }] };
@@ -122,6 +146,7 @@ async function callGeminiStream(
 
 	const decoder = new TextDecoder();
 	let fullText = "";
+	let thoughtText = "";
 	let buffer = "";
 
 	while (true) {
@@ -138,19 +163,26 @@ async function callGeminiStream(
 			if (!jsonStr) continue;
 			try {
 				const data = JSON.parse(jsonStr);
-				const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-				if (text) {
-					fullText += text;
-					options.onChunk?.(fullText);
+				const parts = data.candidates?.[0]?.content?.parts;
+				if (!parts) continue;
+				for (const part of parts) {
+					if (part.text) {
+						if (part.thought) {
+							thoughtText += part.text;
+						} else {
+							fullText += part.text;
+						}
+					}
 				}
+				options.onChunk?.(fullText);
 			} catch {
 				// skip unparseable chunks
 			}
 		}
 	}
 
-	if (!fullText) throw new Error("Gemini API returned no text");
-	return { text: fullText };
+	if (!fullText && !thoughtText) throw new Error("Gemini API returned no text");
+	return { text: fullText || thoughtText, thought: thoughtText || undefined };
 }
 
 export async function geminiGenerateStream(
