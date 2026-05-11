@@ -6,11 +6,12 @@
 
 - **标签翻译** (`/api/translate`)：将中文自然语言描述翻译为英文 Danbooru 标签
 - **标签改写** (`/api/rewrite`)：根据中文修改请求调整已有的 Danbooru 标签
+- **流式响应** (`/api/stream`)：支持 SSE 流式输出，实时查看生成进度
 
 ## 技术栈
 
 - Cloudflare Workers
-- Gemini API (gemma-4-26b-a4b-it)
+- Gemini API (gemma-4-31b-it)
 - Vue 3 + Tailwind CSS (前端界面)
 
 ## 本地开发
