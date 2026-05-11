@@ -721,8 +721,8 @@
 
 						const body = {
 							prompt: prompt.value.trim(),
-							apiKey: apiKey.value,
 						};
+						if (apiKey.value) body.apiKey = apiKey.value;
 						if (originalPrompt.value.trim()) body.original_prompt = originalPrompt.value.trim();
 						if (negativePrompt.value.trim()) body.negative_prompt = negativePrompt.value.trim();
 
