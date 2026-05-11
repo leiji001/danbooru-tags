@@ -7,425 +7,357 @@
 		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 		<title>Danbooru Tags</title>
 	</head>
-	<body class="bg-gray-950 text-gray-100 min-h-screen">
-		<div id="app" v-cloak>
-			<div class="max-w-2xl mx-auto px-4 py-8">
-				<h1 class="text-2xl font-bold mb-8 text-center">Danbooru Tags</h1>
+	<body class="bg-[#1a1a2e] text-gray-200 min-h-screen font-mono">
+		<div id="app">
+			<header class="bg-[#35495e] border-b-2 border-[#42b883] px-6 py-4">
+				<h1 class="text-2xl font-bold text-[#42b883] tracking-wide">Danbooru Tags</h1>
+				<p class="text-sm text-gray-400 mt-1">AI 驱动的标签翻译与改写</p>
+			</header>
 
+			<main class="max-w-2xl mx-auto p-4 space-y-5">
 				<!-- API Key -->
-				<div class="mb-6 bg-gray-900 rounded-xl p-4 border border-gray-800">
-					<label class="block text-sm text-gray-400 mb-2">API Key</label>
-					<div class="flex gap-2">
-						<input
-							v-if="!apiKeySaved"
-							v-model="apiKeyInput"
-							type="password"
-							placeholder="输入 Gemini API Key"
-							class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors"
-						/>
-						<input
-							v-else
-							:value="maskedApiKey"
-							type="text"
-							readonly
-							class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm font-mono cursor-default"
-						/>
-						<button
-							v-if="!apiKeySaved"
-							@click="saveApiKey"
-							:disabled="!apiKeyInput.trim()"
-							class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-						>保存</button>
-						<button
-							v-else
-							@click="clearApiKey"
-							class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
-						>清除</button>
-					</div>
-				</div>
-			<!-- Stream Toggle -->
-			<div class="mb-6 bg-gray-900 rounded-xl p-4 border border-gray-800">
-				<div class="flex items-center justify-center gap-4">
-					<span class="text-sm text-gray-400">请求模式</span>
-					<button
-						@click="streamMode = !streamMode"
-						class="relative w-12 h-6 rounded-full transition-colors duration-200"
-						:class="streamMode ? 'bg-blue-600' : 'bg-gray-600'"
-					>
-						<span
-							class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-							:class="streamMode ? '' : 'translate-x-6'"
-						></span>
-					</button>
-					<span :class="streamMode ? 'text-blue-400' : 'text-gray-500'" class="text-sm font-medium transition-colors">流式</span>
-					<span :class="!streamMode ? 'text-blue-400' : 'text-gray-500'" class="text-sm font-medium transition-colors">普通</span>
-				</div>
-			</div>
-				<!-- Mode Switch -->
-				<div class="mb-6 bg-gray-900 rounded-xl p-4 border border-gray-800">
-					<div class="flex items-center justify-center gap-4">
-						<span :class="mode === 'translate' ? 'text-blue-400' : 'text-gray-500'" class="text-sm font-medium transition-colors">中文转标签</span>
-						<button
-							@click="toggleMode"
-							class="relative w-12 h-6 rounded-full transition-colors duration-200"
-							:class="mode === 'translate' ? 'bg-blue-600' : 'bg-gray-600'"
-						>
-							<span
-								class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-								:class="mode === 'translate' ? '' : 'translate-x-6'"
-							></span>
+				<section class="border border-[#35495e] bg-[#16213e]">
+					<div class="flex items-center justify-between px-4 py-3 border-b border-[#35495e]">
+						<span class="text-sm font-semibold text-[#42b883] uppercase tracking-wider">API Key</span>
+						<button v-if="!apiSaved" @click="saveApiKey" :disabled="!apiInput.trim()"
+							class="px-4 py-1 text-xs font-bold bg-[#42b883] text-[#1a1a2e] hover:bg-[#3aa876] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+							保存
 						</button>
-						<span :class="mode === 'rewrite' ? 'text-blue-400' : 'text-gray-500'" class="text-sm font-medium transition-colors">改写标签</span>
+						<div v-else class="flex gap-2">
+							<button @click="toggleApiVisible"
+								class="px-3 py-1 text-xs bg-[#35495e] hover:bg-[#3d5670] transition-colors">
+								{{ apiVisible ? '隐藏' : '查看' }}
+							</button>
+							<button @click="clearApiKey"
+								class="px-3 py-1 text-xs bg-red-800 hover:bg-red-700 transition-colors">
+								删除
+							</button>
+						</div>
 					</div>
-				</div>
+					<div class="px-4 py-3" v-if="!apiSaved">
+						<input v-model="apiInput" type="password" placeholder="输入你的 Gemini API Key ..."
+							class="w-full px-3 py-2 bg-[#1a1a2e] border border-[#35495e] text-gray-200 text-sm placeholder-gray-600 focus:outline-none focus:border-[#42b883] transition-colors" />
+					</div>
+					<div class="px-4 py-3" v-else-if="apiVisible">
+						<input :value="apiKey" readonly
+							class="w-full px-3 py-2 bg-[#1a1a2e] border border-[#35495e] text-gray-200 text-sm focus:outline-none" />
+					</div>
+					<div class="px-4 py-3" v-else>
+						<p class="text-sm text-gray-500">已保存 {{ maskedKey }} · 内容已隐藏</p>
+					</div>
+				</section>
+
+				<!-- Mode Toggles -->
+				<section class="flex gap-4 flex-wrap">
+					<div class="flex-1 min-w-[160px] border border-[#35495e] bg-[#16213e] p-3">
+						<div class="text-xs text-gray-400 mb-2 uppercase tracking-wider">模式</div>
+						<div class="flex border border-[#35495e]">
+							<button @click="mode = 'translate'"
+								:class="mode === 'translate' ? 'bg-[#42b883] text-[#1a1a2e]' : 'bg-transparent text-gray-400 hover:text-gray-200'"
+								class="flex-1 py-2 text-xs font-bold transition-colors">
+								翻译
+							</button>
+							<button @click="mode = 'rewrite'"
+								:class="mode === 'rewrite' ? 'bg-[#42b883] text-[#1a1a2e]' : 'bg-transparent text-gray-400 hover:text-gray-200'"
+								class="flex-1 py-2 text-xs font-bold transition-colors">
+								改写
+							</button>
+						</div>
+					</div>
+					<div class="flex-1 min-w-[160px] border border-[#35495e] bg-[#16213e] p-3">
+						<div class="text-xs text-gray-400 mb-2 uppercase tracking-wider">请求方式</div>
+						<div class="flex border border-[#35495e]">
+							<button @click="streamMode = false"
+								:class="!streamMode ? 'bg-[#42b883] text-[#1a1a2e]' : 'bg-transparent text-gray-400 hover:text-gray-200'"
+								class="flex-1 py-2 text-xs font-bold transition-colors">
+								普通
+							</button>
+							<button @click="streamMode = true"
+								:class="streamMode ? 'bg-[#42b883] text-[#1a1a2e]' : 'bg-transparent text-gray-400 hover:text-gray-200'"
+								class="flex-1 py-2 text-xs font-bold transition-colors">
+								流式
+							</button>
+						</div>
+					</div>
+				</section>
 
 				<!-- Inputs -->
-				<div class="bg-gray-900 rounded-xl p-4 border border-gray-800 space-y-4">
-					<!-- Translate Mode -->
-					<template v-if="mode === 'translate'">
-						<div>
-							<label class="block text-sm text-gray-400 mb-1">中文描述</label>
-							<textarea
-								v-model="prompt"
-								rows="4"
-								placeholder="输入中文描述，例如：一个穿着白色连衣裙的少女，微笑着站在樱花树下"
-								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
-							></textarea>
-						</div>
-						<div>
-							<label class="block text-sm text-gray-400 mb-1">负面标签 <span class="text-gray-600">(可选)</span></label>
-							<textarea
-								v-model="negativePrompt"
-								rows="2"
-								placeholder="已有的负面标签（会被优化或替换）"
-								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
-							></textarea>
-						</div>
-					</template>
+				<section class="border border-[#35495e] bg-[#16213e] p-4 space-y-4">
+					<div>
+						<label class="block text-xs text-gray-400 mb-1 uppercase tracking-wider">
+							{{ mode === 'translate' ? '描述文本' : '改写指令' }}
+						</label>
+						<textarea v-model="prompt" rows="4"
+							placeholder="输入中文描述，如：一个可爱的女孩，蓝色长发，穿着白色连衣裙，站在樱花树下微笑..."
+							class="w-full px-3 py-2 bg-[#1a1a2e] border border-[#35495e] text-gray-200 text-sm placeholder-gray-600 focus:outline-none focus:border-[#42b883] transition-colors resize-y"></textarea>
+					</div>
 
-					<!-- Rewrite Mode -->
-					<template v-else>
-						<div>
-							<label class="block text-sm text-gray-400 mb-1">当前标签 <span class="text-red-400">*</span></label>
-							<textarea
-								v-model="prompt"
-								rows="4"
-								placeholder="当前的英文 Danbooru 标签列表"
-								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
-							></textarea>
-						</div>
-						<div>
-							<label class="block text-sm text-gray-400 mb-1">修改要求 <span class="text-red-400">*</span></label>
-							<textarea
-								v-model="originalPrompt"
-								rows="3"
-								placeholder="用中文描述需要如何修改，例如：把裙子改成短裙，加上猫耳"
-								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
-							></textarea>
-						</div>
-						<div>
-							<label class="block text-sm text-gray-400 mb-1">负面标签 <span class="text-gray-600">(可选)</span></label>
-							<textarea
-								v-model="negativePrompt"
-								rows="2"
-								placeholder="已有的负面标签（会被优化或替换）"
-								class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
-							></textarea>
-						</div>
-					</template>
+					<div v-if="mode === 'rewrite'">
+						<label class="block text-xs text-gray-400 mb-1 uppercase tracking-wider">原始标签</label>
+						<textarea v-model="originalPrompt" rows="3"
+							placeholder="输入已有的英文标签..."
+							class="w-full px-3 py-2 bg-[#1a1a2e] border border-[#35495e] text-gray-200 text-sm placeholder-gray-600 focus:outline-none focus:border-[#42b883] transition-colors resize-y"></textarea>
+					</div>
 
-					<button
-						@click="submit"
-						:disabled="loading || !canSubmit"
-						class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-					>
-						<span v-if="loading" class="inline-flex items-center gap-2">
-							<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-							处理中...
-						</span>
-						<span v-else>{{ mode === 'translate' ? '转换' : '改写' }}</span>
+					<div>
+						<label class="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Negative Prompt <span class="text-gray-600">(可选)</span></label>
+						<textarea v-model="negativePrompt" rows="2"
+							placeholder="已有的 negative prompt ..."
+							class="w-full px-3 py-2 bg-[#1a1a2e] border border-[#35495e] text-gray-200 text-sm placeholder-gray-600 focus:outline-none focus:border-[#42b883] transition-colors resize-y"></textarea>
+					</div>
+
+					<button @click="submit" :disabled="loading || !canSubmit"
+						class="w-full py-3 text-sm font-bold bg-[#42b883] text-[#1a1a2e] hover:bg-[#3aa876] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+						{{ loading ? '处理中...' : '提交' }}
 					</button>
-				</div>
+				</section>
 
-				<!-- Status & Retry -->
-				<div v-if="loading || statusText" class="mt-4 bg-gray-900 rounded-xl p-4 border border-gray-800 space-y-3">
-					<div class="flex items-center gap-3">
-						<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-							:class="{
-								'bg-blue-500/20 text-blue-300': sseStatus === 'generating',
-								'bg-yellow-500/20 text-yellow-300': sseStatus === 'retrying',
-								'bg-green-500/20 text-green-300': sseStatus === 'done',
-								'bg-red-500/20 text-red-300': sseStatus === 'error',
-								'bg-gray-700 text-gray-400': !sseStatus
-							}"
-						>
-							<svg v-if="sseStatus === 'generating' || sseStatus === 'retrying'" class="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-							{{ statusText }}
-						</span>
-						<span v-if="retryCount > 0" class="text-xs text-yellow-400">
-							重试: {{ retryCount }}/{{ retryMax }}
-						</span>
+				<!-- Stream Status -->
+				<section v-if="loading && streamMode" class="border border-[#35495e] bg-[#16213e] p-4">
+					<div class="flex items-center gap-2 mb-3">
+						<span class="inline-block w-2 h-2 bg-[#42b883] animate-pulse"></span>
+						<span class="text-xs text-gray-400 uppercase tracking-wider">{{ streamStatus }}</span>
+						<span v-if="retryInfo" class="text-xs text-yellow-400">{{ retryInfo }}</span>
 					</div>
-					<div v-if="retryError" class="text-xs text-red-400 break-all">{{ retryError }}</div>
-					<!-- SSE streaming output -->
-					<div v-if="sseOutput" class="bg-gray-800 rounded-lg p-3 text-xs text-gray-300 font-mono max-h-48 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed">{{ sseOutput }}</div>
-				</div>
-				<div v-if="error" class="mt-4 bg-red-900/50 border border-red-700 rounded-xl p-4 text-sm text-red-300">{{ error }}</div>
+					<div v-if="thinking" class="mb-3">
+						<div class="text-xs text-gray-500 mb-1 uppercase tracking-wider">思考过程</div>
+						<div class="text-xs text-gray-400 whitespace-pre-wrap border-l-2 border-[#35495e] pl-3 max-h-40 overflow-y-auto">{{ thinking }}</div>
+					</div>
+					<div v-if="streamChunks" class="mb-3">
+						<div class="text-xs text-gray-500 mb-1 uppercase tracking-wider">生成内容</div>
+						<div class="text-sm text-gray-200 whitespace-pre-wrap border-l-2 border-[#42b883] pl-3 max-h-40 overflow-y-auto">{{ streamChunks }}</div>
+					</div>
+				</section>
 
-				<!-- Result -->
-				<div v-if="result" class="mt-4 bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-					<div class="p-4 border-b border-gray-800">
-						<div class="flex items-center justify-between mb-2">
-							<h3 class="text-sm font-medium text-green-400">POSITIVE</h3>
-							<button
-								@click="copyText(result.positive, 'positive')"
-								class="px-3 py-1 rounded text-xs font-medium transition-colors"
-								:class="copied === 'positive' ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
-							>{{ copied === 'positive' ? '✓ 已复制' : '复制' }}</button>
-						</div>
-						<p class="text-sm text-gray-200 break-all leading-relaxed">{{ result.positive }}</p>
+				<!-- Error -->
+				<section v-if="error" class="border border-red-800 bg-[#2d1b1b] p-4">
+					<div class="text-xs text-red-400 mb-1 uppercase tracking-wider">错误</div>
+					<p class="text-sm text-red-300 whitespace-pre-wrap">{{ error }}</p>
+				</section>
+
+				<!-- Results -->
+				<section v-if="result" class="border border-[#35495e] bg-[#16213e]">
+					<div class="px-4 py-3 border-b border-[#35495e]">
+						<span class="text-xs text-gray-400 uppercase tracking-wider">结果</span>
 					</div>
-					<div v-if="result.negative" class="p-4">
-						<div class="flex items-center justify-between mb-2">
-							<h3 class="text-sm font-medium text-red-400">NEGATIVE</h3>
-							<button
-								@click="copyText(result.negative, 'negative')"
-								class="px-3 py-1 rounded text-xs font-medium transition-colors"
-								:class="copied === 'negative' ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'"
-							>{{ copied === 'negative' ? '✓ 已复制' : '复制' }}</button>
+					<div class="p-4 space-y-4">
+						<div v-if="result.positive">
+							<div class="text-xs text-[#42b883] mb-1 uppercase tracking-wider">Positive</div>
+							<div class="text-sm text-gray-200 whitespace-pre-wrap break-all border-l-2 border-[#42b883] pl-3">{{ result.positive }}</div>
+							<button @click="copy(result.positive)"
+								class="mt-2 px-3 py-1 text-xs bg-[#35495e] hover:bg-[#3d5670] transition-colors">
+								复制
+							</button>
 						</div>
-						<p class="text-sm text-gray-200 break-all leading-relaxed">{{ result.negative }}</p>
+						<div v-if="result.negative">
+							<div class="text-xs text-red-400 mb-1 uppercase tracking-wider">Negative</div>
+							<div class="text-sm text-gray-200 whitespace-pre-wrap break-all border-l-2 border-red-600 pl-3">{{ result.negative }}</div>
+							<button @click="copy(result.negative)"
+								class="mt-2 px-3 py-1 text-xs bg-[#35495e] hover:bg-[#3d5670] transition-colors">
+								复制
+							</button>
+						</div>
 					</div>
-				</div>
-			</div>
+				</section>
+			</main>
 		</div>
 
-		<style>[v-cloak]{display:none}</style>
-
 		<script>
-		const { createApp, ref, computed, watch } = Vue;
+			const { createApp, ref, computed } = Vue;
 
-		createApp({
-			setup() {
-				const STORAGE_KEY = 'danbooru_tags_api_key';
+			createApp({
+				setup() {
+					const apiInput = ref('');
+					const apiKey = ref(localStorage.getItem('gemini_api_key') || '');
+					const apiSaved = ref(!!apiKey.value);
+					const apiVisible = ref(false);
 
-				const mode = ref('translate');
-				const streamMode = ref(true);
-				const apiKeyInput = ref('');
-				const apiKeySaved = ref(false);
-				const prompt = ref('');
-				const originalPrompt = ref('');
-				const negativePrompt = ref('');
-				const loading = ref(false);
-				const error = ref('');
-				const result = ref(null);
-				const sseStatus = ref('');
-				const statusText = ref('');
-				const retryCount = ref(0);
-				const retryMax = ref(0);
-				const retryError = ref('');
-				const sseOutput = ref('');
-				const copied = ref('');
+					const maskedKey = computed(() => {
+						const k = apiKey.value;
+						if (k.length <= 8) return '***';
+						return k.slice(0, 4) + '****' + k.slice(-4);
+					});
 
-				// Restore saved API key
-				const saved = localStorage.getItem(STORAGE_KEY);
-				if (saved) {
-					apiKeyInput.value = saved;
-					apiKeySaved.value = true;
-				}
-
-				const maskedApiKey = computed(() => {
-					const key = apiKeyInput.value;
-					if (key.length <= 8) return '****';
-					return key.slice(0, 4) + '****' + key.slice(-4);
-				});
-
-				const canSubmit = computed(() => {
-					if (!prompt.value.trim()) return false;
-					if (mode.value === 'rewrite' && !originalPrompt.value.trim()) return false;
-					return true;
-				});
-
-				function toggleMode() {
-					mode.value = mode.value === 'translate' ? 'rewrite' : 'translate';
-					error.value = '';
-					result.value = null;
-				}
-
-				function saveApiKey() {
-					const key = apiKeyInput.value.trim();
-					if (!key) return;
-					localStorage.setItem(STORAGE_KEY, key);
-					apiKeySaved.value = true;
-				}
-
-				function clearApiKey() {
-					localStorage.removeItem(STORAGE_KEY);
-					apiKeyInput.value = '';
-					apiKeySaved.value = false;
-				}
-
-				async function copyText(text, tag) {
-					try {
-						await navigator.clipboard.writeText(text);
-						copied.value = tag;
-						setTimeout(() => {
-							if (copied.value === tag) copied.value = '';
-						}, 2000);
-					} catch {
-						// fallback
+					function saveApiKey() {
+						const val = apiInput.value.trim();
+						if (!val) return;
+						apiKey.value = val;
+						localStorage.setItem('gemini_api_key', val);
+						apiSaved.value = true;
+						apiVisible.value = false;
+						apiInput.value = '';
 					}
-				}
 
-				async function submit() {
-					error.value = '';
-					result.value = null;
-					loading.value = true;
-					sseStatus.value = '';
-					statusText.value = streamMode.value ? '正在连接...' : '处理中...';
-					retryCount.value = 0;
-					retryMax.value = 0;
-					retryError.value = '';
-					sseOutput.value = '';
+					function clearApiKey() {
+						apiKey.value = '';
+						apiInput.value = '';
+						localStorage.removeItem('gemini_api_key');
+						apiSaved.value = false;
+						apiVisible.value = false;
+					}
 
-					try {
-						const body = {
-							mode: mode.value,
-							prompt: prompt.value.trim(),
-							apiKey: apiKeyInput.value,
-						};
-						if (negativePrompt.value.trim()) {
-							body.negative_prompt = negativePrompt.value.trim();
-						}
+					function toggleApiVisible() {
+						apiVisible.value = !apiVisible.value;
+					}
+
+					const mode = ref('translate');
+					const streamMode = ref(false);
+
+					const prompt = ref('');
+					const originalPrompt = ref('');
+					const negativePrompt = ref('');
+
+					const loading = ref(false);
+					const error = ref('');
+					const result = ref(null);
+					const streamStatus = ref('');
+					const thinking = ref('');
+					const streamChunks = ref('');
+					const retryInfo = ref('');
+
+					const canSubmit = computed(() => {
 						if (mode.value === 'rewrite') {
-							body.original_prompt = originalPrompt.value.trim();
+							return prompt.value.trim() && originalPrompt.value.trim();
 						}
+						return prompt.value.trim();
+					});
 
-						if (!streamMode.value) {
-							const endpoint = mode.value === 'translate' ? '/api/translate' : '/api/rewrite';
-							const res = await fetch(endpoint, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify(body),
-							});
-							const data = await res.json();
-							if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-							result.value = data;
-							sseStatus.value = 'done';
-							statusText.value = '完成';
-							return;
+					function resetState() {
+						error.value = '';
+						result.value = null;
+						streamStatus.value = '';
+						thinking.value = '';
+						streamChunks.value = '';
+						retryInfo.value = '';
+					}
+
+					async function submit() {
+						if (!canSubmit.value || loading.value) return;
+						resetState();
+						loading.value = true;
+
+						const body = {
+							prompt: prompt.value.trim(),
+							apiKey: apiKey.value,
+						};
+						if (originalPrompt.value.trim()) body.original_prompt = originalPrompt.value.trim();
+						if (negativePrompt.value.trim()) body.negative_prompt = negativePrompt.value.trim();
+
+						try {
+							if (streamMode.value) {
+								await submitStream(body);
+							} else {
+								await submitNormal(body);
+							}
+						} catch (e) {
+							error.value = e.message || String(e);
+						} finally {
+							loading.value = false;
+							streamStatus.value = '';
 						}
+					}
 
-						const res = await fetch('/api/stream', {
+					async function submitNormal(body) {
+						const endpoint = mode.value === 'rewrite' ? '/api/rewrite' : '/api/translate';
+						const resp = await fetch(endpoint, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify(body),
+						});
+						const data = await resp.json();
+						if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+						result.value = data;
+					}
+
+					async function submitStream(body) {
+						body.mode = mode.value;
+
+						const resp = await fetch('/api/stream', {
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
 							body: JSON.stringify(body),
 						});
 
-						if (!res.ok) {
-							const errData = await res.json().catch(() => ({}));
-							throw new Error(errData.error || `HTTP ${res.status}`);
+						if (!resp.ok) {
+							const data = await resp.json().catch(() => ({}));
+							throw new Error(data.error || 'HTTP ' + resp.status);
 						}
 
-						const reader = res.body.getReader();
+						const reader = resp.body.getReader();
 						const decoder = new TextDecoder();
 						let buffer = '';
 
 						while (true) {
 							const { done, value } = await reader.read();
 							if (done) break;
-
 							buffer += decoder.decode(value, { stream: true });
+
 							const parts = buffer.split('\n\n');
 							buffer = parts.pop() || '';
 
 							for (const part of parts) {
-								const lines = part.trim().split('\n');
 								let eventType = '';
 								let dataStr = '';
-
-								for (const line of lines) {
-									if (line.startsWith('event: ')) {
-										eventType = line.slice(7).trim();
-									} else if (line.startsWith('data: ')) {
-										dataStr = line.slice(6).trim();
-									}
+								for (const line of part.split('\n')) {
+									const t = line.trim();
+									if (t.startsWith('event:')) eventType = t.slice(6).trim();
+									else if (t.startsWith('data:')) dataStr = t.slice(5).trim();
 								}
-
-								if (!eventType || !dataStr) continue;
-
+								if (!dataStr) continue;
 								try {
 									const data = JSON.parse(dataStr);
-
-									switch (eventType) {
-										case 'status':
-											sseStatus.value = data.status;
-											if (data.status === 'generating') {
-												statusText.value = '生成中...';
-											} else if (data.status === 'done') {
-												statusText.value = '完成';
-											} else if (data.status === 'error') {
-												statusText.value = '错误';
-											}
-											break;
-										case 'retry':
-											retryCount.value = data.attempt;
-											retryMax.value = data.maxRetries;
-											retryError.value = data.message || '';
-											sseStatus.value = 'retrying';
-											statusText.value = `重试中 (${data.attempt}/${data.maxRetries})...`;
-											break;
-										case 'chunk':
-											sseOutput.value = data.text;
-											break;
-										case 'result':
-											result.value = data;
-											break;
-										case 'error':
-											error.value = data.message;
-											break;
-									}
-								} catch {
-									// skip unparseable events
-								}
+									handleStreamEvent(data, eventType);
+								} catch { /* skip */ }
 							}
 						}
-					} catch (e) {
-						error.value = e.message || String(e);
-						sseStatus.value = 'error';
-						statusText.value = '错误';
-					} finally {
-						loading.value = false;
 					}
-				}
 
-				return {
-					mode,
-					streamMode,
-					apiKeyInput,
-					apiKeySaved,
-					prompt,
-					originalPrompt,
-					negativePrompt,
-					loading,
-					error,
-					result,
-					sseStatus,
-					statusText,
-					retryCount,
-					retryMax,
-					sseOutput,
-					maskedApiKey,
-					canSubmit,
-					copied,
-					toggleMode,
-					saveApiKey,
-					clearApiKey,
-					copyText,
-					submit,
-				};
-			}
-		}).mount('#app');
+					function handleStreamEvent(data, eventType) {
+						switch (eventType) {
+							case 'status':
+								streamStatus.value = data.status === 'generating' ? '生成中...' :
+									data.status === 'done' ? '完成' :
+									data.status === 'error' ? '出错' : data.status;
+								break;
+							case 'chunk':
+								streamChunks.value += data.text || '';
+								break;
+							case 'retry':
+								retryInfo.value = '重试 ' + data.attempt + '/' + data.maxRetries + ': ' + data.message;
+								break;
+							case 'result':
+								result.value = data;
+								break;
+							case 'error':
+								error.value = data.message;
+								break;
+						}
+					}
+
+					async function copy(text) {
+						try {
+							await navigator.clipboard.writeText(text);
+						} catch {
+							const ta = document.createElement('textarea');
+							ta.value = text;
+							document.body.appendChild(ta);
+							ta.select();
+							document.execCommand('copy');
+							document.body.removeChild(ta);
+						}
+					}
+
+					return {
+						apiInput, apiKey, apiSaved, apiVisible, maskedKey,
+						saveApiKey, clearApiKey, toggleApiVisible,
+						mode, streamMode,
+						prompt, originalPrompt, negativePrompt,
+						loading, error, result,
+						streamStatus, thinking, streamChunks, retryInfo,
+						canSubmit, submit, copy,
+					};
+				}
+			}).mount('#app');
 		</script>
 	</body>
 </html>
