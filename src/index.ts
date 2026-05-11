@@ -27,12 +27,11 @@ function extractParams(body: Record<string, unknown>, env: Env): PromptParams {
 	const prompt = String(body.prompt || "").trim();
 	if (!prompt) throw new Error("prompt required");
 
-	const apiKey = env as unknown as { GEMINI_API_KEY?: string };
 	return {
 		prompt,
 		original_prompt: body.original_prompt ? String(body.original_prompt).trim() : undefined,
 		negative_prompt: body.negative_prompt ? String(body.negative_prompt).trim() : undefined,
-		apiKey: "apiKey" in body ? String(body.apiKey) : String(apiKey.GEMINI_API_KEY || ""),
+		apiKey: "apiKey" in body ? String(body.apiKey) : String(env.GEMINI_API_KEY || ""),
 	};
 }
 
