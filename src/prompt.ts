@@ -85,7 +85,7 @@ export async function translatePrompt(params: TranslatePromptParams): Promise<Pr
 
 	const user = `${prompt}${negCtx}`;
 
-	const { text } = await geminiGenerate(`${system}\n\n${user}`, { apiKey });
+	const { text } = await geminiGenerate(user, { apiKey, systemInstruction: system });
 	return parsePosNeg(text);
 }
 
@@ -114,7 +114,7 @@ export async function rewritePrompt(params: RewritePromptParams): Promise<Prompt
 
 	const user = `Current positive tags:\n${original_prompt}${negCtx}\n\nModification:\n${prompt}`;
 
-	const { text } = await geminiGenerate(`${system}\n\n${user}`, { apiKey });
+	const { text } = await geminiGenerate(user, { apiKey, systemInstruction: system });
 	return parsePosNeg(text);
 }
 
@@ -164,7 +164,7 @@ export async function translatePromptStream(
 	const system = buildTranslateSystem();
 	const user = `${prompt}${negCtx}`;
 
-	const { text } = await geminiGenerateStream(`${system}\n\n${user}`, { apiKey, onChunk, onRetry });
+	const { text } = await geminiGenerateStream(user, { apiKey, systemInstruction: system, onChunk, onRetry });
 	return parsePosNeg(text);
 }
 
@@ -181,6 +181,6 @@ export async function rewritePromptStream(
 	const system = buildRewriteSystem();
 	const user = `Current positive tags:\n${original_prompt}${negCtx}\n\nModification:\n${prompt}`;
 
-	const { text } = await geminiGenerateStream(`${system}\n\n${user}`, { apiKey, onChunk, onRetry });
+	const { text } = await geminiGenerateStream(user, { apiKey, systemInstruction: system, onChunk, onRetry });
 	return parsePosNeg(text);
 }

@@ -3,6 +3,7 @@ const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 interface GeminiOptions {
 	apiKey: string;
 	model?: string;
+	systemInstruction?: string;
 	maxRetries?: number;
 	baseDelay?: number;
 }
@@ -24,12 +25,16 @@ async function callGemini(
 	options: GeminiOptions,
 	attempt: number,
 ): Promise<GeminiResponse> {
-	const { apiKey, model = "gemma-4-26b-a4b-it" } = options;
+	const { apiKey, model = "gemma-4-26b-a4b-it", systemInstruction } = options;
 
 	const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`;
-	const body = JSON.stringify({
+	const reqBody: Record<string, unknown> = {
 		contents: [{ parts: [{ text: prompt }] }],
-	});
+	};
+	if (systemInstruction) {
+		reqBody.systemInstruction = { parts: [{ text: systemInstruction }] };
+	}
+	const body = JSON.stringify(reqBody);
 
 	const response = await fetch(url, {
 		method: "POST",
@@ -86,12 +91,16 @@ async function callGeminiStream(
 	prompt: string,
 	options: GeminiOptions & StreamCallbacks,
 ): Promise<GeminiResponse> {
-	const { apiKey, model = "gemma-4-26b-a4b-it" } = options;
+	const { apiKey, model = "gemma-4-26b-a4b-it", systemInstruction } = options;
 
 	const url = `${GEMINI_API_BASE}/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
-	const body = JSON.stringify({
+	const reqBody: Record<string, unknown> = {
 		contents: [{ parts: [{ text: prompt }] }],
-	});
+	};
+	if (systemInstruction) {
+		reqBody.systemInstruction = { parts: [{ text: systemInstruction }] };
+	}
+	const body = JSON.stringify(reqBody);
 
 	const response = await fetch(url, {
 		method: "POST",
