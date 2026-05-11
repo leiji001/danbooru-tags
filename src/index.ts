@@ -31,7 +31,7 @@ function extractParams(body: Record<string, unknown>, env: Env): PromptParams {
 		prompt,
 		original_prompt: body.original_prompt ? String(body.original_prompt).trim() : undefined,
 		negative_prompt: body.negative_prompt ? String(body.negative_prompt).trim() : undefined,
-		apiKey: "apiKey" in body ? String(body.apiKey) : String(env.GEMINI_API_KEY || ""),
+		apiKey: String(body.apiKey || env.GEMINI_API_KEY || ""),
 	};
 }
 
