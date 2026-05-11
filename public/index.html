@@ -665,6 +665,10 @@
 					} catch (e) { return []; }
 				}
 
+				function saveHistoryToStorage() {
+					localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value));
+				}
+
 					function addToHistory(data) {
 						const entry = {
 							id: Date.now(),
