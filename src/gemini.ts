@@ -25,7 +25,7 @@ async function callGemini(
 	options: GeminiOptions,
 	attempt: number,
 ): Promise<GeminiResponse> {
-	const { apiKey, model = "gemma-4-26b-a4b-it", systemInstruction } = options;
+	const { apiKey, model = "gemma-4-31b-it", systemInstruction } = options;
 
 	const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`;
 	const reqBody: Record<string, unknown> = {
