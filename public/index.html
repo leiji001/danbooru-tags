@@ -43,7 +43,24 @@
 						>清除</button>
 					</div>
 				</div>
-
+			<!-- Stream Toggle -->
+			<div class="mb-6 bg-gray-900 rounded-xl p-4 border border-gray-800">
+				<div class="flex items-center justify-center gap-4">
+					<span class="text-sm text-gray-400">请求模式</span>
+					<button
+						@click="streamMode = !streamMode"
+						class="relative w-12 h-6 rounded-full transition-colors duration-200"
+						:class="streamMode ? 'bg-blue-600' : 'bg-gray-600'"
+					>
+						<span
+							class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+							:class="streamMode ? '' : 'translate-x-6'"
+						></span>
+					</button>
+					<span :class="streamMode ? 'text-blue-400' : 'text-gray-500'" class="text-sm font-medium transition-colors">流式</span>
+					<span :class="!streamMode ? 'text-blue-400' : 'text-gray-500'" class="text-sm font-medium transition-colors">普通</span>
+				</div>
+			</div>
 				<!-- Mode Switch -->
 				<div class="mb-6 bg-gray-900 rounded-xl p-4 border border-gray-800">
 					<div class="flex items-center justify-center gap-4">
@@ -193,6 +210,7 @@
 				const STORAGE_KEY = 'danbooru_tags_api_key';
 
 				const mode = ref('translate');
+				const streamMode = ref(true);
 				const apiKeyInput = ref('');
 				const apiKeySaved = ref(false);
 				const prompt = ref('');
@@ -264,7 +282,7 @@
 					result.value = null;
 					loading.value = true;
 					sseStatus.value = '';
-					statusText.value = '正在连接...';
+					statusText.value = streamMode.value ? '正在连接...' : '处理中...';
 					retryCount.value = 0;
 					retryMax.value = 0;
 					retryError.value = '';
@@ -281,6 +299,21 @@
 						}
 						if (mode.value === 'rewrite') {
 							body.original_prompt = originalPrompt.value.trim();
+						}
+
+						if (!streamMode.value) {
+							const endpoint = mode.value === 'translate' ? '/api/translate' : '/api/rewrite';
+							const res = await fetch(endpoint, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify(body),
+							});
+							const data = await res.json();
+							if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+							result.value = data;
+							sseStatus.value = 'done';
+							statusText.value = '完成';
+							return;
 						}
 
 						const res = await fetch('/api/stream', {
@@ -368,6 +401,7 @@
 
 				return {
 					mode,
+					streamMode,
 					apiKeyInput,
 					apiKeySaved,
 					prompt,
