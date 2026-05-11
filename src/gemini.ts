@@ -36,9 +36,18 @@ interface GeminiResponse {
 	candidates: GeminiCandidate[];
 }
 
+const SAFETY_OFF = [
+	{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
+	{ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
+	{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" },
+	{ category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
+	{ category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "OFF" },
+];
+
 function buildBody(userPrompt: string, options: GeminiOptions): Record<string, unknown> {
 	const body: Record<string, unknown> = {
 		contents: [{ parts: [{ text: userPrompt }], role: "user" }],
+		safetySettings: SAFETY_OFF,
 		generationConfig: {
 			thinkingConfig: { includeThoughts: true },
 		},
