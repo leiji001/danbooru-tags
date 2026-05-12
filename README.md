@@ -12,7 +12,6 @@
 
 - Cloudflare Workers
 - Gemini API (gemma-4-31b-it)
-- Vue 3 + Tailwind CSS (前端界面)
 
 ## 本地开发
 
