@@ -5,8 +5,8 @@ const RETRY_DELAY = 500;
 
 export interface GeminiOptions {
 	apiKey: string;
-	systemInstruction?: string;
 	model?: string;
+	thinkingBudget?: number;
 }
 
 export interface GeminiResult {
@@ -76,27 +76,25 @@ function throwIfBlocked(data: GeminiResponse): void {
 }
 
 const SAFETY_OFF = [
+	{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
 	{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
 	{ category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
 	{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-	{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-	{ category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
 ];
 
-function buildBody(userPrompt: string, options: GeminiOptions): Record<string, unknown> {
-	const body: Record<string, unknown> = {
-		contents: [{ parts: [{ text: userPrompt }], role: "user" }],
-		safetySettings: SAFETY_OFF,
-		generationConfig: {
-			thinkingConfig: { includeThoughts: true },
-		},
+function buildBody(finalPrompt: string, options: GeminiOptions): Record<string, unknown> {
+	const generationConfig: Record<string, unknown> = {
+		temperature: 0.7,
+		maxOutputTokens: 1024,
 	};
-	if (options.systemInstruction) {
-		body.systemInstruction = {
-			parts: [{ text: options.systemInstruction }],
-		};
+	if (typeof options.thinkingBudget === "number") {
+		generationConfig.thinkingConfig = { thinkingBudget: options.thinkingBudget };
 	}
-	return body;
+	return {
+		contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+		safetySettings: SAFETY_OFF,
+		generationConfig,
+	};
 }
 
 function extractParts(data: GeminiResponse): GeminiResult {
@@ -115,25 +113,22 @@ function extractParts(data: GeminiResponse): GeminiResult {
 	return { text: textParts.join(""), thoughts: thoughtParts.join("") };
 }
 
-/** 普通请求 */
 export async function geminiGenerate(
-	userPrompt: string,
+	finalPrompt: string,
 	options: GeminiOptions,
 ): Promise<GeminiResult> {
 	const model = options.model || DEFAULT_MODEL;
-	const url = `${BASE_URL}/${model}:generateContent`;
-	const body = buildBody(userPrompt, options);
+	const url = `${BASE_URL}/${model}:generateContent?key=${encodeURIComponent(options.apiKey)}`;
+	const body = buildBody(finalPrompt, options);
 
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		const resp = await fetch(url, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				"x-goog-api-key": options.apiKey,
 			},
 			body: JSON.stringify(body),
 		});
-
 		if (resp.status === 500) {
 			if (attempt < MAX_RETRIES) {
 				await new Promise(r => setTimeout(r, RETRY_DELAY));
@@ -141,30 +136,19 @@ export async function geminiGenerate(
 			}
 			throw new Error(`Gemini API 500 after ${MAX_RETRIES} retries`);
 		}
-
-		if (resp.status === 400) {
-			const errText = await resp.text();
-			throw new Error(errText);
-		}
-
-		if (!resp.ok) {
-			const errText = await resp.text();
-			throw new Error(errText);
-		}
-
+		if (!resp.ok) throw new Error(await resp.text());
 		return extractParts(await resp.json() as GeminiResponse);
 	}
 	throw new Error("unreachable");
 }
 
-/** 流式请求 */
 export async function geminiGenerateStream(
-	userPrompt: string,
+	finalPrompt: string,
 	options: GeminiOptions & StreamCallbacks,
 ): Promise<GeminiResult> {
 	const model = options.model || DEFAULT_MODEL;
-	const url = `${BASE_URL}/${model}:streamGenerateContent`;
-	const body = buildBody(userPrompt, options);
+	const url = `${BASE_URL}/${model}:streamGenerateContent?key=${encodeURIComponent(options.apiKey)}`;
+	const body = buildBody(finalPrompt, options);
 	const { onChunk, onRetry } = options;
 
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -172,11 +156,9 @@ export async function geminiGenerateStream(
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				"x-goog-api-key": options.apiKey,
 			},
 			body: JSON.stringify(body),
 		});
-
 		if (resp.status === 500) {
 			if (attempt < MAX_RETRIES) {
 				onRetry?.(attempt + 1, MAX_RETRIES, "HTTP 500");
@@ -185,16 +167,7 @@ export async function geminiGenerateStream(
 			}
 			throw new Error(`Gemini API 500 after ${MAX_RETRIES} retries`);
 		}
-
-		if (resp.status === 400) {
-			const errText = await resp.text();
-			throw new Error(errText);
-		}
-
-		if (!resp.ok) {
-			const errText = await resp.text();
-			throw new Error(errText);
-		}
+		if (!resp.ok) throw new Error(await resp.text());
 
 		const reader = resp.body!.getReader();
 		const decoder = new TextDecoder();
@@ -226,14 +199,16 @@ export async function geminiGenerateStream(
 							onChunk?.(part.text);
 						}
 					}
-				} catch { /* skip malformed JSON */ }
+				} catch {
+					// ignore malformed line
+				}
 			}
 		}
 
-		if (!textParts.length) {
-			throw new Error("Gemini stream returned no text output");
+		const final = { candidates: [{ content: { parts: [] } }] } as GeminiResponse;
+		if (!textParts.length && !thoughtParts.length) {
+			throwIfBlocked(final);
 		}
-
 		return { text: textParts.join(""), thoughts: thoughtParts.join("") };
 	}
 	throw new Error("unreachable");
