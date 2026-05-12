@@ -1,605 +1,218 @@
 <!doctype html>
 <html lang="zh-CN">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-		<title>Danbooru Tags</title>
-		<style>
-			*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-			:root {
-				--primary: #18a058;
-				--primary-hover: #36ad6a;
-				--primary-pressed: #0c7a43;
-				--primary-suppl: rgba(24, 160, 88, 0.1);
-				--info: #2080f0;
-				--info-suppl: rgba(32, 128, 240, 0.1);
-				--success: #18a058;
-				--warning: #f0a020;
-				--warning-suppl: rgba(240, 160, 32, 0.1);
-				--error: #d03050;
-				--error-suppl: rgba(208, 48, 80, 0.1);
-				--text-1: rgb(31, 34, 37);
-				--text-2: rgb(51, 54, 57);
-				--text-3: rgb(118, 124, 130);
-				--text-disabled: rgb(194, 198, 204);
-				--border-color: rgb(239, 239, 245);
-				--divider-color: rgb(239, 239, 245);
-				--input-border: rgb(224, 224, 230);
-				--input-border-hover: #18a058;
-				--input-border-focus: #18a058;
-				--input-shadow-focus: 0 0 0 2px rgba(24, 160, 88, 0.2);
-				--body-color: #fafafc;
-				--card-color: #ffffff;
-				--card-shadow: 0 1px 2px -2px rgba(0,0,0,.08), 0 3px 6px 0 rgba(0,0,0,.06), 0 5px 12px 4px rgba(0,0,0,.04);
-				--radius-sm: 4px;
-				--radius: 8px;
-				--radius-lg: 12px;
-				--font-family: "v-sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-				--font-mono: "v-mono", Menlo, Monaco, Consolas, "Courier New", monospace;
-			}
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<script src="https://cdn.tailwindcss.com"></script>
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					colors: {
+						primary: { DEFAULT: '#18a058', hover: '#36ad6a', pressed: '#0c7a43' },
+						danger: '#d03050',
+						info: '#2080f0',
+						warning: '#f0a020',
+						'tx1': 'rgb(31,34,37)',
+						'tx2': 'rgb(51,54,57)',
+						'tx3': 'rgb(118,124,130)',
+						'txdis': 'rgb(194,198,204)',
+					},
+					fontFamily: {
+						sans: ['"v-sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+						mono: ['"v-mono"', 'Menlo', 'Monaco', 'Consolas', '"Courier New"', 'monospace'],
+					},
+					animation: { 'pulse-dot': 'pulse-dot 1.5s ease-in-out infinite' },
+					keyframes: {
+						'pulse-dot': {
+							'0%, 100%': { opacity: '1', transform: 'scale(1)' },
+							'50%': { opacity: '.4', transform: 'scale(.85)' },
+						},
+					},
+				},
+			},
+		}
+	</script>
+	<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+	<title>Danbooru Tags</title>
+</head>
+<body class="bg-[#fafafc] text-tx2 text-sm leading-relaxed min-h-screen antialiased">
 
-			body {
-				background: var(--body-color);
-				color: var(--text-2);
-				font-family: var(--font-family);
-				font-size: 14px;
-				line-height: 1.6;
-				min-height: 100vh;
-				-webkit-font-smoothing: antialiased;
-			}
+<div id="app">
+	<header class="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-3 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
+		<div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-white text-base font-bold shrink-0">D</div>
+		<h1 class="text-lg font-semibold text-tx1 -tracking-[.01em]">Danbooru Tags</h1>
+		<span class="text-[13px] text-tx3 ml-auto">AI 驱动的标签翻译与改写</span>
+	</header>
 
-			/* Layout */
-			.app-header {
-				background: var(--card-color);
-				border-bottom: 1px solid var(--border-color);
-				padding: 16px 24px;
-				display: flex;
-				align-items: center;
-				gap: 12px;
-				box-shadow: 0 1px 2px rgba(0,0,0,.03);
-			}
-			.app-header .logo {
-				width: 32px; height: 32px;
-				background: var(--primary);
-				border-radius: var(--radius-sm);
-				display: flex; align-items: center; justify-content: center;
-				color: #fff; font-size: 16px; font-weight: 700;
-				flex-shrink: 0;
-			}
-			.app-header h1 {
-				font-size: 18px;
-				font-weight: 600;
-				color: var(--text-1);
-				letter-spacing: -.01em;
-			}
-			.app-header .subtitle {
-				font-size: 13px;
-				color: var(--text-3);
-				margin-left: auto;
-			}
-
-			.main {
-				max-width: 720px;
-				margin: 0 auto;
-				padding: 24px 16px;
-				display: flex;
-				flex-direction: column;
-				gap: 16px;
-			}
-
-			/* Card */
-			.card {
-				background: var(--card-color);
-				border: 1px solid var(--border-color);
-				border-radius: var(--radius);
-				box-shadow: var(--card-shadow);
-				overflow: hidden;
-			}
-			.card-header {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-				padding: 12px 16px;
-				border-bottom: 1px solid var(--border-color);
-				font-size: 13px;
-				font-weight: 600;
-				color: var(--text-1);
-			}
-			.card-body { padding: 16px; }
-
-			/* Form Controls */
-			.label {
-				display: block;
-				font-size: 12px;
-				font-weight: 500;
-				color: var(--text-3);
-				margin-bottom: 6px;
-			}
-			.label .optional {
-				color: var(--text-disabled);
-				font-weight: 400;
-			}
-
-			.input, .textarea {
-				display: block;
-				width: 100%;
-				padding: 8px 12px;
-				font-size: 13px;
-				font-family: inherit;
-				color: var(--text-1);
-				background: var(--card-color);
-				border: 1px solid var(--input-border);
-				border-radius: var(--radius-sm);
-				outline: none;
-				transition: border-color .2s, box-shadow .2s;
-				line-height: 1.5;
-			}
-			.input::placeholder, .textarea::placeholder {
-				color: var(--text-disabled);
-			}
-			.input:hover, .textarea:hover {
-				border-color: var(--input-border-hover);
-			}
-			.input:focus, .textarea:focus {
-				border-color: var(--input-border-focus);
-				box-shadow: var(--input-shadow-focus);
-			}
-			.input.readonly {
-				background: rgb(250, 250, 252);
-				color: var(--text-3);
-				cursor: default;
-			}
-			.textarea {
-				resize: vertical;
-				min-height: 60px;
-			}
-
-			.form-group { margin-bottom: 14px; }
-			.form-group:last-child { margin-bottom: 0; }
-
-			/* Buttons */
-			.btn {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				padding: 6px 16px;
-				font-size: 13px;
-				font-weight: 500;
-				font-family: inherit;
-				border: 1px solid transparent;
-				border-radius: var(--radius-sm);
-				cursor: pointer;
-				transition: all .2s;
-				outline: none;
-				line-height: 1.5;
-				white-space: nowrap;
-				user-select: none;
-			}
-			.btn:focus-visible {
-				box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.2);
-			}
-			.btn-primary {
-				background: var(--primary);
-				color: #fff;
-				border-color: var(--primary);
-			}
-			.btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
-			.btn-primary:active { background: var(--primary-pressed); border-color: var(--primary-pressed); }
-			.btn-primary:disabled {
-				opacity: .5;
-				cursor: not-allowed;
-			}
-
-			.btn-default {
-				background: #fff;
-				color: var(--text-2);
-				border-color: var(--input-border);
-			}
-			.btn-default:hover { color: var(--primary); border-color: var(--primary); }
-			.btn-default:active { color: var(--primary-pressed); border-color: var(--primary-pressed); }
-
-			.btn-error {
-				background: #fff;
-				color: var(--error);
-				border-color: var(--input-border);
-			}
-			.btn-error:hover { color: #fff; background: var(--error); border-color: var(--error); }
-
-			.btn-sm { padding: 4px 10px; font-size: 12px; }
-			.btn-block { display: flex; width: 100%; padding: 10px 16px; font-size: 14px; }
-
-			/* Button Group */
-			.btn-group {
-				display: inline-flex;
-				border: 1px solid var(--input-border);
-				border-radius: var(--radius-sm);
-				overflow: hidden;
-			}
-			.btn-group .btn-group-item {
-				padding: 5px 12px;
-				font-size: 12px;
-				font-weight: 500;
-				font-family: inherit;
-				background: transparent;
-				color: var(--text-2);
-				border: none;
-				border-right: 1px solid var(--input-border);
-				cursor: pointer;
-				transition: all .2s;
-				outline: none;
-				flex: 1;
-				text-align: center;
-			}
-			.btn-group .btn-group-item:last-child { border-right: none; }
-			.btn-group .btn-group-item:hover { color: var(--primary); background: var(--primary-suppl); }
-			.btn-group .btn-group-item.active {
-				background: var(--primary);
-				color: #fff;
-			}
-			.btn-group .btn-group-item.active:hover {
-				background: var(--primary-hover);
-				color: #fff;
-			}
-
-			/* Alert / Banner */
-			.alert {
-				padding: 10px 16px;
-				border-radius: var(--radius);
-				border: 1px solid;
-				font-size: 13px;
-				line-height: 1.6;
-			}
-			.alert-error {
-				background: var(--error-suppl);
-				border-color: rgba(208, 48, 80, 0.25);
-				color: var(--error);
-			}
-			.alert-info {
-				background: var(--info-suppl);
-				border-color: rgba(32, 128, 240, 0.25);
-				color: var(--info);
-			}
-
-			/* Result blocks */
-			.result-block {
-				background: rgb(250, 250, 252);
-				border: 1px solid var(--border-color);
-				border-radius: var(--radius-sm);
-				padding: 12px;
-				margin-bottom: 12px;
-			}
-			.result-block:last-child { margin-bottom: 0; }
-			.result-label {
-				font-size: 11px;
-				font-weight: 600;
-				text-transform: uppercase;
-				letter-spacing: .03em;
-				margin-bottom: 8px;
-			}
-			.result-label.label-positive { color: var(--primary); }
-			.result-label.label-negative { color: var(--error); }
-			.result-text {
-				font-size: 13px;
-				font-family: var(--font-mono);
-				word-break: break-all;
-				white-space: pre-wrap;
-				color: var(--text-1);
-				line-height: 1.7;
-			}
-			.result-actions { margin-top: 8px; }
-
-			/* Stream */
-			.stream-indicator {
-				display: flex;
-				align-items: center;
-				gap: 8px;
-			}
-			.stream-dot {
-				width: 8px; height: 8px;
-				border-radius: 50%;
-				background: var(--primary);
-				animation: pulse-dot 1.5s ease-in-out infinite;
-			}
-			@keyframes pulse-dot {
-				0%, 100% { opacity: 1; transform: scale(1); }
-				50% { opacity: .4; transform: scale(.85); }
-			}
-			.stream-label {
-				font-size: 12px;
-				color: var(--text-3);
-				font-weight: 500;
-			}
-			.stream-retry {
-				font-size: 12px;
-				color: var(--warning);
-				margin-left: auto;
-			}
-			.think-block, .stream-block {
-				margin-top: 12px;
-			}
-			.think-block .label, .stream-block .label {
-				font-size: 11px;
-				color: var(--text-3);
-				margin-bottom: 6px;
-			}
-			.think-content, .stream-content {
-				font-size: 12px;
-				color: var(--text-2);
-				white-space: pre-wrap;
-				border-left: 2px solid var(--border-color);
-				padding-left: 10px;
-				max-height: 160px;
-				overflow-y: auto;
-				line-height: 1.6;
-			}
-			.stream-content { border-left-color: var(--primary); color: var(--text-1); font-size: 13px; }
-
-			/* Mode toggle row */
-			.mode-row {
-				display: flex;
-				gap: 16px;
-			}
-			.mode-col {
-				flex: 1;
-				min-width: 0;
-			}
-			.mode-col .label {
-				margin-bottom: 6px;
-				font-size: 12px;
-				color: var(--text-3);
-				font-weight: 500;
-			}
-
-			/* Copy feedback */
-			.btn-copied {
-				transition: none;
-			}
-
-			/* History */
-			.history-list {
-				list-style: none;
-				max-height: 480px;
-				overflow-y: auto;
-			}
-			.history-item {
-				padding: 10px 12px;
-				border-bottom: 1px solid var(--border-color);
-				cursor: pointer;
-				transition: background .15s;
-			}
-			.history-item:last-child { border-bottom: none; }
-			.history-item:hover { background: rgb(250, 250, 252); }
-			.history-item-header {
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				margin-bottom: 4px;
-			}
-			.history-badge {
-				display: inline-block;
-				padding: 1px 6px;
-				border-radius: 3px;
-				font-size: 11px;
-				font-weight: 600;
-				line-height: 1.6;
-			}
-			.history-badge-translate {
-				background: var(--primary-suppl);
-				color: var(--primary);
-			}
-			.history-badge-rewrite {
-				background: var(--info-suppl);
-				color: var(--info);
-			}
-			.history-time {
-				font-size: 11px;
-				color: var(--text-disabled);
-				margin-left: auto;
-				flex-shrink: 0;
-			}
-			.history-prompt {
-				font-size: 12px;
-				color: var(--text-2);
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-			.history-result {
-				font-size: 11px;
-				color: var(--text-3);
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-				margin-top: 2px;
-			}
-			.history-empty {
-				text-align: center;
-				padding: 24px 16px;
-				font-size: 13px;
-				color: var(--text-disabled);
-			}
-			.history-actions {
-				display: flex;
-				gap: 6px;
-				align-items: center;
-			}
-
-			@media (max-width: 480px) {
-				.main { padding: 16px 12px; gap: 12px; }
-				.mode-row { flex-direction: column; gap: 12px; }
-			}
-		</style>
-	</head>
-	<body>
-		<div id="app">
-			<header class="app-header">
-				<div class="logo">D</div>
-				<h1>Danbooru Tags</h1>
-				<span class="subtitle">AI 驱动的标签翻译与改写</span>
-			</header>
-
-			<main class="main">
-				<!-- API Key -->
-				<section class="card">
-					<div class="card-header">
-						<span>API Key</span>
-						<div style="display:flex;gap:6px;">
-							<button v-if="!apiSaved" @click="saveApiKey" :disabled="!apiInput.trim()"
-								class="btn btn-primary btn-sm">保存</button>
-							<template v-else>
-								<button @click="toggleApiVisible" class="btn btn-default btn-sm">
-									{{ apiVisible ? '隐藏' : '查看' }}
-								</button>
-								<button @click="clearApiKey" class="btn btn-error btn-sm">删除</button>
-							</template>
-						</div>
-					</div>
-					<div class="card-body">
-						<div v-if="!apiSaved">
-							<input v-model="apiInput" type="password" placeholder="输入你的 Gemini API Key ..."
-								class="input" />
-						</div>
-						<div v-else-if="apiVisible">
-							<input :value="apiKey" readonly class="input readonly" />
-						</div>
-						<div v-else>
-							<p style="font-size:13px;color:var(--text-3);">已保存 {{ maskedKey }} · 内容已隐藏</p>
-						</div>
-					</div>
-				</section>
-
-				<!-- Mode + Stream Toggles -->
-				<section class="card">
-					<div class="card-body">
-						<div class="mode-row">
-							<div class="mode-col">
-								<div class="label">模式</div>
-								<div class="btn-group" style="width:100%;">
-									<button @click="mode = 'translate'"
-										:class="['btn-group-item', { active: mode === 'translate' }]">翻译</button>
-									<button @click="mode = 'rewrite'"
-										:class="['btn-group-item', { active: mode === 'rewrite' }]">改写</button>
-								</div>
-							</div>
-							<div class="mode-col">
-								<div class="label">请求方式</div>
-								<div class="btn-group" style="width:100%;">
-									<button @click="streamMode = false"
-										:class="['btn-group-item', { active: !streamMode }]">普通</button>
-									<button @click="streamMode = true"
-										:class="['btn-group-item', { active: streamMode }]">流式</button>
-								</div>
-							</div>
-						</div>
-					</div>
-				</section>
-
-				<!-- Inputs -->
-				<section class="card">
-					<div class="card-body">
-						<div class="form-group">
-							<label class="label">{{ mode === 'translate' ? '描述文本' : '改写指令' }}</label>
-							<textarea v-model="prompt" rows="4"
-								placeholder="输入中文描述，如：一个可爱的女孩，蓝色长发，穿着白色连衣裙，站在樱花树下微笑..."
-								class="textarea" style="min-height:100px;"></textarea>
-						</div>
-
-						<div v-if="mode === 'rewrite'" class="form-group">
-							<label class="label">原始标签</label>
-							<textarea v-model="originalPrompt" rows="3"
-								placeholder="输入已有的英文标签..."
-								class="textarea" style="min-height:80px;"></textarea>
-						</div>
-
-						<div class="form-group">
-							<label class="label">负面标签<span class="optional">(可选)</span></label>
-							<textarea v-model="negativePrompt" rows="2"
-								placeholder="已有的负面标签 ..."
-								class="textarea" style="min-height:60px;"></textarea>
-						</div>
-
-						<button @click="submit" :disabled="loading || !canSubmit"
-							class="btn btn-primary btn-block">
-							{{ loading ? '处理中...' : '提交' }}
+	<main class="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-4 max-sm:px-3 max-sm:py-4 max-sm:gap-3">
+		<!-- API Key -->
+		<section class="bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+			<div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 text-sm font-semibold text-tx1">
+				<span>API Key</span>
+				<div class="flex gap-1.5">
+					<button v-if="!apiSaved" @click="saveApiKey" :disabled="!apiInput.trim()"
+						class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-medium border border-transparent rounded cursor-pointer transition-all outline-none whitespace-nowrap select-none focus-visible:ring-2 focus-visible:ring-primary/20 bg-primary text-white border-primary hover:bg-primary-hover hover:border-primary-hover active:bg-primary-pressed active:border-primary-pressed disabled:opacity-50 disabled:cursor-not-allowed">保存</button>
+					<template v-else>
+						<button @click="toggleApiVisible"
+							class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-medium border rounded cursor-pointer transition-all outline-none whitespace-nowrap select-none focus-visible:ring-2 focus-visible:ring-primary/20 bg-white text-tx2 border-gray-200 hover:text-primary hover:border-primary active:text-primary-pressed active:border-primary-pressed">
+							{{ apiVisible ? '隐藏' : '查看' }}
 						</button>
-					</div>
-				</section>
+						<button @click="clearApiKey"
+							class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-medium border rounded cursor-pointer transition-all outline-none whitespace-nowrap select-none focus-visible:ring-2 focus-visible:ring-primary/20 bg-white text-danger border-gray-200 hover:text-white hover:bg-danger hover:border-danger">删除</button>
+					</template>
+				</div>
+			</div>
+			<div class="p-4">
+				<div v-if="!apiSaved">
+					<input v-model="apiInput" type="password" placeholder="输入你的 Gemini API Key ..."
+						class="block w-full px-3 py-2 text-sm text-tx1 bg-white border border-gray-200 rounded outline-none transition-all leading-normal placeholder:text-txdis hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20" />
+				</div>
+				<div v-else-if="apiVisible">
+					<input :value="apiKey" readonly
+						class="block w-full px-3 py-2 text-sm bg-gray-50 text-tx3 border border-gray-200 rounded cursor-default outline-none" />
+				</div>
+				<div v-else>
+					<p class="text-[13px] text-tx3">已保存 {{ maskedKey }} · 内容已隐藏</p>
+				</div>
+			</div>
+		</section>
 
-				<!-- Stream Status -->
-				<section v-if="loading && streamMode" class="card">
-					<div class="card-body">
-						<div class="stream-indicator">
-							<div class="stream-dot"></div>
-							<span class="stream-label">{{ streamStatus }}</span>
-							<span v-if="retryInfo" class="stream-retry">{{ retryInfo }}</span>
-						</div>
-						<div v-if="thinking" class="think-block">
-							<div class="label">思考过程</div>
-							<div class="think-content">{{ thinking }}</div>
-						</div>
-						<div v-if="streamChunks" class="stream-block">
-							<div class="label">生成内容</div>
-							<div class="stream-content">{{ streamChunks }}</div>
+		<!-- Mode + Stream Toggles -->
+		<section class="bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+			<div class="p-4">
+				<div class="flex gap-4 max-sm:flex-col max-sm:gap-3">
+					<div class="flex-1 min-w-0">
+						<div class="block text-xs font-medium text-tx3 mb-1.5">模式</div>
+						<div class="inline-flex w-full border border-gray-200 rounded overflow-hidden">
+							<button @click="mode = 'translate'"
+								:class="['px-3 py-1.5 text-xs font-medium bg-transparent border-r border-gray-200 cursor-pointer transition-all outline-none flex-1 text-center last:border-r-0 hover:text-primary hover:bg-primary/10', mode === 'translate' ? 'bg-primary text-white hover:bg-primary-hover hover:text-white' : 'text-tx2']">翻译</button>
+							<button @click="mode = 'rewrite'"
+								:class="['px-3 py-1.5 text-xs font-medium bg-transparent border-r border-gray-200 cursor-pointer transition-all outline-none flex-1 text-center last:border-r-0 hover:text-primary hover:bg-primary/10', mode === 'rewrite' ? 'bg-primary text-white hover:bg-primary-hover hover:text-white' : 'text-tx2']">改写</button>
 						</div>
 					</div>
-				</section>
+					<div class="flex-1 min-w-0">
+						<div class="block text-xs font-medium text-tx3 mb-1.5">请求方式</div>
+						<div class="inline-flex w-full border border-gray-200 rounded overflow-hidden">
+							<button @click="streamMode = false"
+								:class="['px-3 py-1.5 text-xs font-medium bg-transparent border-r border-gray-200 cursor-pointer transition-all outline-none flex-1 text-center last:border-r-0 hover:text-primary hover:bg-primary/10', !streamMode ? 'bg-primary text-white hover:bg-primary-hover hover:text-white' : 'text-tx2']">普通</button>
+							<button @click="streamMode = true"
+								:class="['px-3 py-1.5 text-xs font-medium bg-transparent border-r border-gray-200 cursor-pointer transition-all outline-none flex-1 text-center last:border-r-0 hover:text-primary hover:bg-primary/10', streamMode ? 'bg-primary text-white hover:bg-primary-hover hover:text-white' : 'text-tx2']">流式</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
 
-				<!-- Error -->
-				<section v-if="error" class="alert alert-error">{{ error }}</section>
+		<!-- Inputs -->
+		<section class="bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+			<div class="p-4">
+				<div class="mb-3.5 last:mb-0">
+					<label class="block text-xs font-medium text-tx3 mb-1.5">{{ mode === 'translate' ? '描述文本' : '改写指令' }}</label>
+					<textarea v-model="prompt" rows="4"
+						placeholder="输入中文描述，如：一个可爱的女孩，蓝色长发，穿着白色连衣裙，站在樱花树下微笑..."
+						class="block w-full px-3 py-2 text-sm text-tx1 bg-white border border-gray-200 rounded outline-none transition-all leading-normal placeholder:text-txdis hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20 resize-y min-h-[100px]"></textarea>
+				</div>
 
-				<!-- History -->
-				<section v-if="history.length" class="card">
-					<div class="card-header" style="cursor:pointer;user-select:none;" @click="historyCollapsed = !historyCollapsed">
-						<span style="display:flex;align-items:center;gap:6px;">
-							<span style="transition:transform .2s;" :style="{ transform: historyCollapsed ? '' : 'rotate(90deg)' }">▸</span>
-							历史记录 ({{ history.length }})
-						</span>
-						<div class="history-actions">
-							<button @click.stop="clearHistory" class="btn btn-error btn-sm">清空</button>
-						</div>
-					</div>
-					<div v-show="!historyCollapsed" class="card-body" style="padding:0;">
-						<ul class="history-list">
-							<li v-for="item in history" :key="item.id" class="history-item"
-								@click="restoreHistory(item)">
-								<div class="history-item-header">
-									<span :class="['history-badge', item.mode === 'rewrite' ? 'history-badge-rewrite' : 'history-badge-translate']">
-										{{ item.mode === 'rewrite' ? '改写' : '翻译' }}
-									</span>
-									<span class="history-time">{{ formatTime(item.createdAt) }}</span>
-								</div>
-								<div class="history-prompt">{{ item.prompt }}</div>
-								<div class="history-result">{{ item.positive }}</div>
-							</li>
-						</ul>
-					</div>
-				</section>
+				<div v-if="mode === 'rewrite'" class="mb-3.5 last:mb-0">
+					<label class="block text-xs font-medium text-tx3 mb-1.5">原始标签</label>
+					<textarea v-model="originalPrompt" rows="3"
+						placeholder="输入已有的英文标签..."
+						class="block w-full px-3 py-2 text-sm text-tx1 bg-white border border-gray-200 rounded outline-none transition-all leading-normal placeholder:text-txdis hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20 resize-y min-h-[80px]"></textarea>
+				</div>
 
-				<!-- Results -->
-				<section v-if="result" class="card">
-					<div class="card-header">
-						<span>结果</span>
-					</div>
-					<div class="card-body">
-						<div v-if="result.positive" class="result-block">
-							<div class="result-label label-positive">Positive</div>
-							<div class="result-text">{{ result.positive }}</div>
-							<div class="result-actions">
-								<button @click="copy(result.positive)" class="btn btn-default btn-sm">复制</button>
-							</div>
+				<div class="mb-3.5 last:mb-0">
+					<label class="block text-xs font-medium text-tx3 mb-1.5">负面标签<span class="text-txdis font-normal">(可选)</span></label>
+					<textarea v-model="negativePrompt" rows="2"
+						placeholder="已有的负面标签 ..."
+						class="block w-full px-3 py-2 text-sm text-tx1 bg-white border border-gray-200 rounded outline-none transition-all leading-normal placeholder:text-txdis hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20 resize-y min-h-[60px]"></textarea>
+				</div>
+
+				<button @click="submit" :disabled="loading || !canSubmit"
+					class="flex w-full items-center justify-center px-4 py-2.5 text-sm font-medium border rounded cursor-pointer transition-all outline-none whitespace-nowrap select-none focus-visible:ring-2 focus-visible:ring-primary/20 bg-primary text-white border-primary hover:bg-primary-hover hover:border-primary-hover active:bg-primary-pressed active:border-primary-pressed disabled:opacity-50 disabled:cursor-not-allowed">
+					{{ loading ? '处理中...' : '提交' }}
+				</button>
+			</div>
+		</section>
+
+		<!-- Stream Status -->
+		<section v-if="loading && streamMode" class="bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+			<div class="p-4">
+				<div class="flex items-center gap-2">
+					<div class="w-2 h-2 rounded-full bg-primary animate-pulse-dot"></div>
+					<span class="text-xs text-tx3 font-medium">{{ streamStatus }}</span>
+					<span v-if="retryInfo" class="text-xs text-warning ml-auto">{{ retryInfo }}</span>
+				</div>
+				<div v-if="thinking" class="mt-3">
+					<div class="text-[11px] text-tx3 mb-1.5">思考过程</div>
+					<div class="text-xs text-tx2 whitespace-pre-wrap border-l-2 border-gray-100 pl-2.5 max-h-40 overflow-y-auto leading-relaxed">{{ thinking }}</div>
+				</div>
+				<div v-if="streamChunks" class="mt-3">
+					<div class="text-[11px] text-tx3 mb-1.5">生成内容</div>
+					<div class="text-[13px] text-tx1 whitespace-pre-wrap border-l-2 border-primary pl-2.5 max-h-40 overflow-y-auto leading-relaxed">{{ streamChunks }}</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Error -->
+		<section v-if="error" class="px-4 py-2.5 rounded-lg border text-sm leading-relaxed bg-danger/10 border-danger/25 text-danger">{{ error }}</section>
+
+		<!-- History -->
+		<section v-if="history.length" class="bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+			<div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 text-sm font-semibold text-tx1 cursor-pointer select-none" @click="historyCollapsed = !historyCollapsed">
+				<span class="flex items-center gap-1.5">
+					<span class="transition-transform duration-200" :style="{ transform: historyCollapsed ? '' : 'rotate(90deg)' }">▸</span>
+					历史记录 ({{ history.length }})
+				</span>
+				<div class="flex gap-1.5 items-center">
+					<button @click.stop="clearHistory"
+						class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-medium border rounded cursor-pointer transition-all outline-none whitespace-nowrap select-none focus-visible:ring-2 focus-visible:ring-primary/20 bg-white text-danger border-gray-200 hover:text-white hover:bg-danger hover:border-danger">清空</button>
+				</div>
+			</div>
+			<div v-show="!historyCollapsed" class="p-0">
+				<ul class="list-none max-h-[480px] overflow-y-auto">
+					<li v-for="item in history" :key="item.id"
+						class="px-3 py-2.5 border-b border-gray-100 cursor-pointer transition-colors last:border-b-0 hover:bg-gray-50"
+						@click="restoreHistory(item)">
+						<div class="flex items-center gap-2 mb-1">
+							<span :class="['inline-block px-1.5 py-px rounded-sm text-[11px] font-semibold leading-relaxed', item.mode === 'rewrite' ? 'bg-info/10 text-info' : 'bg-primary/10 text-primary']">
+								{{ item.mode === 'rewrite' ? '改写' : '翻译' }}
+							</span>
+							<span class="text-[11px] text-txdis ml-auto shrink-0">{{ formatTime(item.createdAt) }}</span>
 						</div>
-						<div v-if="result.negative" class="result-block">
-							<div class="result-label label-negative">Negative</div>
-							<div class="result-text">{{ result.negative }}</div>
-							<div class="result-actions">
-								<button @click="copy(result.negative)" class="btn btn-default btn-sm">复制</button>
-							</div>
-						</div>
+						<div class="text-xs text-tx2 truncate">{{ item.prompt }}</div>
+						<div class="text-[11px] text-tx3 truncate mt-0.5">{{ item.positive }}</div>
+					</li>
+				</ul>
+			</div>
+		</section>
+
+		<!-- Results -->
+		<section v-if="result" class="bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+			<div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 text-sm font-semibold text-tx1">
+				<span>结果</span>
+			</div>
+			<div class="p-4">
+				<div v-if="result.positive" class="bg-gray-50 border border-gray-100 rounded p-3 mb-3 last:mb-0">
+					<div class="text-[11px] font-semibold uppercase tracking-wider mb-2 text-primary">Positive</div>
+					<div class="text-[13px] font-mono break-all whitespace-pre-wrap text-tx1 leading-relaxed">{{ result.positive }}</div>
+					<div class="mt-2">
+						<button @click="copy(result.positive)"
+							class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-medium border rounded cursor-pointer transition-all outline-none whitespace-nowrap select-none focus-visible:ring-2 focus-visible:ring-primary/20 bg-white text-tx2 border-gray-200 hover:text-primary hover:border-primary active:text-primary-pressed active:border-primary-pressed">复制</button>
 					</div>
-				</section>
-			</main>
-		</div>
+				</div>
+				<div v-if="result.negative" class="bg-gray-50 border border-gray-100 rounded p-3 last:mb-0">
+					<div class="text-[11px] font-semibold uppercase tracking-wider mb-2 text-danger">Negative</div>
+					<div class="text-[13px] font-mono break-all whitespace-pre-wrap text-tx1 leading-relaxed">{{ result.negative }}</div>
+					<div class="mt-2">
+						<button @click="copy(result.negative)"
+							class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-medium border rounded cursor-pointer transition-all outline-none whitespace-nowrap select-none focus-visible:ring-2 focus-visible:ring-primary/20 bg-white text-tx2 border-gray-200 hover:text-primary hover:border-primary active:text-primary-pressed active:border-primary-pressed">复制</button>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
+</div>
 
 		<script>
 			const { createApp, ref, computed } = Vue;
