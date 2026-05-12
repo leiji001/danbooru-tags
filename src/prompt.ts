@@ -50,9 +50,18 @@ function buildSystem(mode: "translate" | "rewrite"): string {
 }
 
 function buildUserMessage(mode: "translate" | "rewrite", params: PromptParams): string {
-	const negCtx = params.negative_prompt ? `\n\nCurrent negative tags (improve or replace as needed):\n${params.negative_prompt}` : "";
-	if (mode === "translate") return `${params.prompt}${negCtx}`;
-	return `Current positive tags:\n${params.original_prompt}${negCtx}\n\nModification:\n${params.prompt}`;
+	if (mode === "translate") {
+		return `${params.prompt}
+Current negative tags: ${params.negative_prompt || ""}`;
+	}
+	return `Current positive tags:
+${params.original_prompt || ""}
+
+Current negative tags:
+${params.negative_prompt || ""}
+
+Modification:
+${params.prompt}`;
 }
 
 function parseResult(text: string): PromptResult {
@@ -67,14 +76,18 @@ function parseResult(text: string): PromptResult {
 export async function translatePrompt(params: PromptParams): Promise<PromptResult> {
 	const system = buildSystem("translate");
 	const user = buildUserMessage("translate", params);
-	const { text } = await geminiGenerate(user, { apiKey: params.apiKey, systemInstruction: system });
+	const { text } = await geminiGenerate(`${system}
+
+${user}`, { apiKey: params.apiKey });
 	return parseResult(text);
 }
 
 export async function rewritePrompt(params: PromptParams): Promise<PromptResult> {
 	const system = buildSystem("rewrite");
 	const user = buildUserMessage("rewrite", params);
-	const { text } = await geminiGenerate(user, { apiKey: params.apiKey, systemInstruction: system });
+	const { text } = await geminiGenerate(`${system}
+
+${user}`, { apiKey: params.apiKey });
 	return parseResult(text);
 }
 
@@ -83,7 +96,9 @@ export async function translatePromptStream(
 ): Promise<PromptResult> {
 	const system = buildSystem("translate");
 	const user = buildUserMessage("translate", params);
-	const { text } = await geminiGenerateStream(user, { apiKey: params.apiKey, systemInstruction: system, onChunk: params.onChunk, onRetry: params.onRetry });
+	const { text } = await geminiGenerateStream(`${system}
+
+${user}`, { apiKey: params.apiKey, onChunk: params.onChunk, onRetry: params.onRetry });
 	return parseResult(text);
 }
 
@@ -92,6 +107,8 @@ export async function rewritePromptStream(
 ): Promise<PromptResult> {
 	const system = buildSystem("rewrite");
 	const user = buildUserMessage("rewrite", params);
-	const { text } = await geminiGenerateStream(user, { apiKey: params.apiKey, systemInstruction: system, onChunk: params.onChunk, onRetry: params.onRetry });
+	const { text } = await geminiGenerateStream(`${system}
+
+${user}`, { apiKey: params.apiKey, onChunk: params.onChunk, onRetry: params.onRetry });
 	return parseResult(text);
 }
