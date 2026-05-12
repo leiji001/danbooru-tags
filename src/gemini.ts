@@ -29,11 +29,50 @@ interface GeminiContent {
 }
 
 interface GeminiCandidate {
+	finishReason?: string;
+	safetyRatings?: Array<{ category?: string; probability?: string }>;
 	content: GeminiContent;
 }
 
 interface GeminiResponse {
 	candidates: GeminiCandidate[];
+	promptFeedback?: {
+		blockReason?: string;
+		blockReasonMessage?: string;
+		safetyRatings?: Array<{ category?: string; probability?: string }>;
+	};
+}
+
+function formatSafetyRatings(
+	ratings?: Array<{ category?: string; probability?: string }>,
+): string {
+	if (!ratings?.length) return "";
+	return ratings
+		.map(r => `${r.category || "UNKNOWN"}:${r.probability || "UNKNOWN"}`)
+		.join(", ");
+}
+
+function throwIfBlocked(data: GeminiResponse): void {
+	const feedback = data.promptFeedback;
+	if (feedback?.blockReason) {
+		const ratings = formatSafetyRatings(feedback.safetyRatings);
+		const message = feedback.blockReasonMessage || "Prompt blocked by safety review";
+		throw new Error(
+			`Gemini prompt blocked (${feedback.blockReason}): ${message}${ratings ? ` | safetyRatings=${ratings}` : ""}`,
+		);
+	}
+
+	const candidate = data.candidates?.[0];
+	if (!candidate) {
+		throw new Error("Gemini returned no candidates");
+	}
+
+	if (!candidate.content?.parts?.length && candidate.finishReason) {
+		const ratings = formatSafetyRatings(candidate.safetyRatings);
+		throw new Error(
+			`Gemini returned empty candidate (finishReason=${candidate.finishReason})${ratings ? ` | safetyRatings=${ratings}` : ""}`,
+		);
+	}
 }
 
 const SAFETY_OFF = [
@@ -61,6 +100,7 @@ function buildBody(userPrompt: string, options: GeminiOptions): Record<string, u
 }
 
 function extractParts(data: GeminiResponse): GeminiResult {
+	throwIfBlocked(data);
 	const parts = data.candidates?.[0]?.content?.parts ?? [];
 	const textParts: string[] = [];
 	const thoughtParts: string[] = [];
@@ -188,6 +228,10 @@ export async function geminiGenerateStream(
 					}
 				} catch { /* skip malformed JSON */ }
 			}
+		}
+
+		if (!textParts.length) {
+			throw new Error("Gemini stream returned no text output");
 		}
 
 		return { text: textParts.join(""), thoughts: thoughtParts.join("") };
